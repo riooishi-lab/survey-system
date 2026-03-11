@@ -44,7 +44,7 @@ export default function NewCompanySurveyPage() {
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [deadline, setDeadline] = useState("");
-    const [isAnonymous, setIsAnonymous] = useState(true);
+    const [isAnonymous, setIsAnonymous] = useState(false);
     const [respondentFields, setRespondentFields] = useState<RespondentFields>({
         name: false,
         age: false,
