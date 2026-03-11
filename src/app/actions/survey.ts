@@ -163,13 +163,27 @@ export async function updateSurvey(id: string, data: {
 
 export async function submitSurveyResponse(
     surveyId: string,
-    responses: Record<string, { type: "score" | "text"; value: string }>
+    responses: Record<string, { type: "score" | "text"; value: string }>,
+    respondentData?: {
+        name?: string;
+        age?: number;
+        gender?: string;
+        join_year?: number;
+        hire_type?: string;
+    }
 ) {
     const supabase = getSupabase();
 
     const { data: response, error: responseError } = await supabase
         .from("responses")
-        .insert({ survey_id: surveyId })
+        .insert({
+            survey_id: surveyId,
+            respondent_name: respondentData?.name ?? null,
+            respondent_age: respondentData?.age ?? null,
+            respondent_gender: respondentData?.gender ?? null,
+            respondent_join_year: respondentData?.join_year ?? null,
+            respondent_hire_type: respondentData?.hire_type ?? null,
+        })
         .select()
         .single();
 

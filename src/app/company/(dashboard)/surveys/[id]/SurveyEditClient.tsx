@@ -22,6 +22,22 @@ import {
 type Question = { id?: string; text: string; type: "score" | "text" };
 type SurveyLink = { id: string; token: string; is_active: boolean; expires_at: string | null; created_at: string };
 
+type RespondentFields = {
+    name: boolean;
+    age: boolean;
+    gender: boolean;
+    join_year: boolean;
+    hire_type: boolean;
+};
+
+const RESPONDENT_FIELD_LABELS: Record<keyof RespondentFields, string> = {
+    name: "名前",
+    age: "年齢",
+    gender: "性別",
+    join_year: "入社年度",
+    hire_type: "新卒 / 中途",
+};
+
 export default function SurveyEditClient({ survey }: { survey: any }) {
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -36,11 +52,23 @@ export default function SurveyEditClient({ survey }: { survey: any }) {
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     });
     const [status, setStatus] = useState<"draft" | "active" | "closed">(survey.status);
+    const [isAnonymous, setIsAnonymous] = useState<boolean>(survey.is_anonymous ?? true);
+    const [respondentFields, setRespondentFields] = useState<RespondentFields>({
+        name: survey.respondent_fields?.name ?? false,
+        age: survey.respondent_fields?.age ?? false,
+        gender: survey.respondent_fields?.gender ?? false,
+        join_year: survey.respondent_fields?.join_year ?? false,
+        hire_type: survey.respondent_fields?.hire_type ?? false,
+    });
     const [questions, setQuestions] = useState<Question[]>(
         (survey.questions || []).map((q: any) => ({ id: q.id, text: q.text, type: q.type }))
     );
     const [links, setLinks] = useState<SurveyLink[]>(survey.survey_links || []);
     const [linkExpiry, setLinkExpiry] = useState("");
+
+    const toggleRespondentField = (field: keyof RespondentFields) => {
+        setRespondentFields((prev) => ({ ...prev, [field]: !prev[field] }));
+    };
 
     const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
 
@@ -72,6 +100,8 @@ export default function SurveyEditClient({ survey }: { survey: any }) {
             description,
             deadline,
             status: newStatus || status,
+            is_anonymous: isAnonymous,
+            respondent_fields: isAnonymous ? { name: false, age: false, gender: false, join_year: false, hire_type: false } : respondentFields,
             questions: validQuestions.map((q, i) => ({
                 id: q.id && q.id.length > 13 ? q.id : undefined,
                 text: q.text,
@@ -195,6 +225,47 @@ export default function SurveyEditClient({ survey }: { survey: any }) {
                                 {status === "active" && <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200">公開中</Badge>}
                                 {status === "draft" && <Badge className="bg-slate-100 text-slate-600 border-slate-200">下書き</Badge>}
                                 {status === "closed" && <Badge className="bg-red-100 text-red-700 border-red-200">終了</Badge>}
+                            </div>
+
+                            {/* 匿名設定 */}
+                            <div className="border-t border-slate-100 pt-4 space-y-3">
+                                <Label>回答者情報</Label>
+                                <div className="flex gap-2 rounded-lg border border-slate-200 overflow-hidden">
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsAnonymous(true)}
+                                        className={`flex-1 py-2 text-sm font-medium transition-colors ${isAnonymous ? "bg-indigo-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50"}`}
+                                    >
+                                        匿名
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsAnonymous(false)}
+                                        className={`flex-1 py-2 text-sm font-medium transition-colors ${!isAnonymous ? "bg-indigo-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50"}`}
+                                    >
+                                        属性を収集
+                                    </button>
+                                </div>
+                                {isAnonymous ? (
+                                    <p className="text-xs text-slate-400">回答者の個人情報は収集しません。</p>
+                                ) : (
+                                    <div className="space-y-2">
+                                        <p className="text-xs text-slate-500">収集する項目を選択してください：</p>
+                                        {(Object.keys(RESPONDENT_FIELD_LABELS) as (keyof RespondentFields)[]).map((field) => (
+                                            <label key={field} className="flex items-center gap-2 cursor-pointer group">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={respondentFields[field]}
+                                                    onChange={() => toggleRespondentField(field)}
+                                                    className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                                />
+                                                <span className="text-sm text-slate-700 group-hover:text-slate-900">
+                                                    {RESPONDENT_FIELD_LABELS[field]}
+                                                </span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         </CardContent>
                     </Card>
