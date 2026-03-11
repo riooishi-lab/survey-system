@@ -247,7 +247,7 @@ export async function createCompanySurvey(surveyData: {
             deadline: surveyData.deadline || null,
             status: surveyData.status,
             company_id: companyId,
-            is_anonymous: surveyData.is_anonymous ?? true,
+            is_anonymous: surveyData.is_anonymous ?? false,
             respondent_fields: surveyData.respondent_fields ?? { name: false, age: false, gender: false, join_year: false, hire_type: false },
         })
         .select()
@@ -342,7 +342,7 @@ export async function updateCompanySurvey(
             description: surveyData.description || null,
             deadline: surveyData.deadline || null,
             status: surveyData.status,
-            is_anonymous: surveyData.is_anonymous ?? true,
+            is_anonymous: surveyData.is_anonymous ?? false,
             respondent_fields: surveyData.respondent_fields ?? { name: false, age: false, gender: false, join_year: false, hire_type: false },
         })
         .eq("id", surveyId);
