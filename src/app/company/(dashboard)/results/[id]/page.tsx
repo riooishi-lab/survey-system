@@ -136,7 +136,10 @@ export default async function CompanyResultsPage({ params }: { params: Promise<{
                                 <span className="text-sm text-slate-500">最終回答日</span>
                             </div>
                             <p className="text-lg font-bold text-slate-900">
-                                {new Date(responses[responses.length - 1]?.created_at).toLocaleDateString("ja-JP")}
+                                {new Date(responses[responses.length - 1]?.created_at).toLocaleString("ja-JP", {
+                                    year: "numeric", month: "2-digit", day: "2-digit",
+                                    hour: "2-digit", minute: "2-digit"
+                                })}
                             </p>
                         </div>
                     </div>
