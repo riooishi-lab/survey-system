@@ -3,7 +3,6 @@ import { getSupabase } from "@/lib/supabase-server";
 import { requireMasterAuth } from "@/lib/auth";
 import { Building2, PlusCircle, Mail, FileText, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import CompanyStatusToggle from "./CompanyStatusToggle";
 
 export const dynamic = "force-dynamic";
@@ -67,14 +66,6 @@ export default async function MasterCompaniesPage() {
                                             <div>
                                                 <div className="flex items-center gap-2">
                                                     <h3 className="font-semibold text-slate-900 text-lg">{company.name}</h3>
-                                                    <Badge
-                                                        className={company.status === "active"
-                                                            ? "bg-emerald-100 text-emerald-800 border-emerald-200 text-xs"
-                                                            : "bg-slate-100 text-slate-600 border-slate-200 text-xs"
-                                                        }
-                                                    >
-                                                        {company.status === "active" ? "有効" : "無効"}
-                                                    </Badge>
                                                 </div>
                                                 <div className="flex items-center gap-1 mt-1">
                                                     <Mail className="w-3.5 h-3.5 text-slate-400" />

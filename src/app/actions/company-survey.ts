@@ -1,14 +1,35 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { scrypt, randomBytes, timingSafeEqual } from "crypto";
+import { promisify } from "util";
 import { getSupabase } from "@/lib/supabase-server";
 import {
     requireCompanyAuth,
     setCompanySession,
     clearCompanySession,
+    setCompanySetupSession,
+    getCompanySetupSession,
+    clearCompanySetupSession,
 } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
+const scryptAsync = promisify(scrypt);
+
+async function hashPassword(password: string): Promise<string> {
+    const salt = randomBytes(16).toString("hex");
+    const buf = (await scryptAsync(password, salt, 64)) as Buffer;
+    return `${buf.toString("hex")}.${salt}`;
+}
+
+async function verifyPassword(password: string, hash: string): Promise<boolean> {
+    const [hashedPassword, salt] = hash.split(".");
+    const hashedBuf = Buffer.from(hashedPassword, "hex");
+    const suppliedBuf = (await scryptAsync(password, salt, 64)) as Buffer;
+    return timingSafeEqual(hashedBuf, suppliedBuf);
+}
+
+// トークンでのログイン（初回はセットアップページへリダイレクト）
 export async function companyLogin(formData: FormData) {
     const token = (formData.get("access_token") as string)?.trim();
 
@@ -19,7 +40,7 @@ export async function companyLogin(formData: FormData) {
     const supabase = getSupabase();
     const { data, error } = await supabase
         .from("companies")
-        .select("id, name, status")
+        .select("id, name, status, is_initialized")
         .eq("access_token", token)
         .single();
 
@@ -31,7 +52,111 @@ export async function companyLogin(formData: FormData) {
         return { error: "このアカウントは無効化されています。管理者にお問い合わせください" };
     }
 
+    // 初回ログイン: セットアップページへ
+    if (!data.is_initialized) {
+        await setCompanySetupSession(data.id);
+        redirect("/company/setup");
+    }
+
     await setCompanySession(data.id);
+    redirect("/company");
+}
+
+// IDとパスワードでのログイン（セットアップ完了後）
+export async function companyPasswordLogin(formData: FormData) {
+    const loginId = (formData.get("login_id") as string)?.trim();
+    const password = (formData.get("password") as string);
+
+    if (!loginId || !password) {
+        return { error: "メールアドレスとパスワードを入力してください" };
+    }
+
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+        .from("companies")
+        .select("id, status, is_initialized, password_hash")
+        .eq("login_id", loginId)
+        .single();
+
+    if (error || !data) {
+        return { error: "メールアドレスまたはパスワードが正しくありません" };
+    }
+
+    if (data.status === "inactive") {
+        return { error: "このアカウントは無効化されています。管理者にお問い合わせください" };
+    }
+
+    if (!data.is_initialized || !data.password_hash) {
+        return { error: "パスワードが設定されていません。まずトークンでログインしてください" };
+    }
+
+    const isValid = await verifyPassword(password, data.password_hash);
+    if (!isValid) {
+        return { error: "メールアドレスまたはパスワードが正しくありません" };
+    }
+
+    await setCompanySession(data.id);
+    redirect("/company");
+}
+
+// 初回セットアップ: ログインIDとパスワードを設定
+export async function setupCompanyCredentials(formData: FormData) {
+    const companyId = await getCompanySetupSession();
+    if (!companyId) {
+        return { error: "セッションが切れました。再度トークンでログインしてください" };
+    }
+
+    const loginId = (formData.get("login_id") as string)?.trim();
+    const password = (formData.get("password") as string);
+    const passwordConfirm = (formData.get("password_confirm") as string);
+
+    if (!loginId) {
+        return { error: "メールアドレスを入力してください" };
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(loginId)) {
+        return { error: "有効なメールアドレスを入力してください" };
+    }
+
+    if (!password || password.length < 8) {
+        return { error: "パスワードは8文字以上で入力してください" };
+    }
+
+    if (password !== passwordConfirm) {
+        return { error: "パスワードが一致しません" };
+    }
+
+    const supabase = getSupabase();
+
+    // login_id の重複チェック
+    const { data: existing } = await supabase
+        .from("companies")
+        .select("id")
+        .eq("login_id", loginId)
+        .single();
+
+    if (existing) {
+        return { error: "このメールアドレスはすでに使用されています" };
+    }
+
+    const passwordHash = await hashPassword(password);
+
+    const { error } = await supabase
+        .from("companies")
+        .update({
+            login_id: loginId,
+            password_hash: passwordHash,
+            is_initialized: true,
+        })
+        .eq("id", companyId);
+
+    if (error) {
+        return { error: "設定の保存に失敗しました" };
+    }
+
+    await clearCompanySetupSession();
+    await setCompanySession(companyId);
     redirect("/company");
 }
 
