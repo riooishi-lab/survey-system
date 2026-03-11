@@ -20,6 +20,8 @@ export default async function EmployeeSurveyPage({ params }: { params: Promise<{
                 title,
                 description,
                 status,
+                is_anonymous,
+                respondent_fields,
                 questions (*)
             )
         `)
@@ -60,6 +62,8 @@ export default async function EmployeeSurveyPage({ params }: { params: Promise<{
             title={survey.title}
             description={survey.description}
             questions={questions}
+            isAnonymous={survey.is_anonymous ?? true}
+            respondentFields={survey.respondent_fields ?? {}}
         />
     );
 }

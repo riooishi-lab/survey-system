@@ -28,21 +28,43 @@ const ratingOptions = [
     { value: "5", label: "非常にそう思う" },
 ];
 
+type RespondentFieldsConfig = {
+    name?: boolean;
+    age?: boolean;
+    gender?: boolean;
+    join_year?: boolean;
+    hire_type?: boolean;
+};
+
+const CURRENT_YEAR = new Date().getFullYear();
+const JOIN_YEAR_OPTIONS = Array.from({ length: 50 }, (_, i) => CURRENT_YEAR - i);
+
 export default function SurveyClientForm({
     surveyId,
     title,
     description,
     questions,
     isPreview = false,
+    isAnonymous = true,
+    respondentFields = {},
 }: {
     surveyId: string;
     title: string;
     description: string | null;
     questions: { id: string; text: string; type: "score" | "text" }[];
     isPreview?: boolean;
+    isAnonymous?: boolean;
+    respondentFields?: RespondentFieldsConfig;
 }) {
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // 属性フィールドの state
+    const [respondentName, setRespondentName] = useState("");
+    const [respondentAge, setRespondentAge] = useState("");
+    const [respondentGender, setRespondentGender] = useState("");
+    const [respondentJoinYear, setRespondentJoinYear] = useState("");
+    const [respondentHireType, setRespondentHireType] = useState("");
 
     const formSchema = z.object({
         responses: z.record(
@@ -69,6 +91,15 @@ export default function SurveyClientForm({
             return;
         }
 
+        // 属性フィールドのバリデーション
+        if (!isAnonymous) {
+            if (respondentFields.name && !respondentName.trim()) { alert("名前を入力してください"); return; }
+            if (respondentFields.age && !respondentAge) { alert("年齢を入力してください"); return; }
+            if (respondentFields.gender && !respondentGender) { alert("性別を選択してください"); return; }
+            if (respondentFields.join_year && !respondentJoinYear) { alert("入社年度を選択してください"); return; }
+            if (respondentFields.hire_type && !respondentHireType) { alert("新卒/中途を選択してください"); return; }
+        }
+
         if (isPreview) {
             alert("プレビューモードのため、実際のデータは送信されません。");
             return;
@@ -76,7 +107,14 @@ export default function SurveyClientForm({
 
         setIsSubmitting(true);
         try {
-            const result = await submitSurveyResponse(surveyId, values.responses);
+            const respondentData = isAnonymous ? undefined : {
+                name: respondentFields.name ? respondentName.trim() : undefined,
+                age: respondentFields.age ? parseInt(respondentAge, 10) : undefined,
+                gender: respondentFields.gender ? respondentGender : undefined,
+                join_year: respondentFields.join_year ? parseInt(respondentJoinYear, 10) : undefined,
+                hire_type: respondentFields.hire_type ? respondentHireType : undefined,
+            };
+            const result = await submitSurveyResponse(surveyId, values.responses, respondentData);
             if (result.error) {
                 alert("エラーが発生しました: " + result.error);
             } else {
@@ -123,6 +161,86 @@ export default function SurveyClientForm({
 
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                        {/* 属性フォーム（非匿名の場合のみ表示） */}
+                        {!isAnonymous && (
+                            <Card className="p-6 md:p-8 bg-white rounded-xl shadow-sm border-slate-200">
+                                <p className="text-base font-semibold text-slate-900 mb-4">あなたについて</p>
+                                <div className="space-y-4">
+                                    {respondentFields.name && (
+                                        <div className="space-y-1">
+                                            <label className="text-sm font-medium text-slate-700">名前</label>
+                                            <input
+                                                type="text"
+                                                value={respondentName}
+                                                onChange={(e) => setRespondentName(e.target.value)}
+                                                placeholder="山田 太郎"
+                                                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            />
+                                        </div>
+                                    )}
+                                    {respondentFields.age && (
+                                        <div className="space-y-1">
+                                            <label className="text-sm font-medium text-slate-700">年齢</label>
+                                            <input
+                                                type="number"
+                                                value={respondentAge}
+                                                onChange={(e) => setRespondentAge(e.target.value)}
+                                                placeholder="30"
+                                                min={15}
+                                                max={80}
+                                                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            />
+                                        </div>
+                                    )}
+                                    {respondentFields.gender && (
+                                        <div className="space-y-1">
+                                            <label className="text-sm font-medium text-slate-700">性別</label>
+                                            <select
+                                                value={respondentGender}
+                                                onChange={(e) => setRespondentGender(e.target.value)}
+                                                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                                            >
+                                                <option value="">選択してください</option>
+                                                <option value="male">男性</option>
+                                                <option value="female">女性</option>
+                                                <option value="other">その他</option>
+                                                <option value="prefer_not_to_say">回答しない</option>
+                                            </select>
+                                        </div>
+                                    )}
+                                    {respondentFields.join_year && (
+                                        <div className="space-y-1">
+                                            <label className="text-sm font-medium text-slate-700">入社年度</label>
+                                            <select
+                                                value={respondentJoinYear}
+                                                onChange={(e) => setRespondentJoinYear(e.target.value)}
+                                                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                                            >
+                                                <option value="">選択してください</option>
+                                                {JOIN_YEAR_OPTIONS.map((year) => (
+                                                    <option key={year} value={year}>{year}年</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
+                                    {respondentFields.hire_type && (
+                                        <div className="space-y-1">
+                                            <label className="text-sm font-medium text-slate-700">入社区分</label>
+                                            <select
+                                                value={respondentHireType}
+                                                onChange={(e) => setRespondentHireType(e.target.value)}
+                                                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                                            >
+                                                <option value="">選択してください</option>
+                                                <option value="new_grad">新卒</option>
+                                                <option value="mid_career">中途</option>
+                                            </select>
+                                        </div>
+                                    )}
+                                </div>
+                            </Card>
+                        )}
+
                         {questions.map((question, index) => (
                             <FormField
                                 key={question.id}
