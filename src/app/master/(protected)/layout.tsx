@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireMasterAuth } from "@/lib/auth";
 import { masterLogout } from "@/app/actions/master";
-import { LayoutDashboard, Building2, LogOut, Shield } from "lucide-react";
+import { LayoutDashboard, Building2, LogOut, Shield, ExternalLink } from "lucide-react";
 
 export default async function MasterLayout({ children }: { children: React.ReactNode }) {
     await requireMasterAuth();
@@ -36,6 +36,17 @@ export default async function MasterLayout({ children }: { children: React.React
                         企業アカウント管理
                     </Link>
                 </nav>
+
+                <div className="pt-4 border-t border-slate-700">
+                    <Link
+                        href="/company/login"
+                        target="_blank"
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 hover:text-white transition-colors text-slate-400 text-sm"
+                    >
+                        <ExternalLink size={16} />
+                        企業ログイン画面
+                    </Link>
+                </div>
 
                 <div className="mt-auto pt-4 border-t border-slate-700">
                     <form action={masterLogout}>
