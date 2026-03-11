@@ -12,6 +12,22 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Plus, Trash2, Save, Loader2 } from "lucide-react";
 
+type RespondentFields = {
+    name: boolean;
+    age: boolean;
+    gender: boolean;
+    join_year: boolean;
+    hire_type: boolean;
+};
+
+const RESPONDENT_FIELD_LABELS: Record<keyof RespondentFields, string> = {
+    name: "名前",
+    age: "年齢",
+    gender: "性別",
+    join_year: "入社年度",
+    hire_type: "新卒 / 中途",
+};
+
 const DEFAULT_QUESTIONS = [
     "配属された部署では、先輩後輩関係なくコミュニケーションが取れる環境ですか？",
     "配属された部署では、より良い仕事をするために、前向きな意見が出る環境ですか？",
@@ -28,6 +44,14 @@ export default function NewCompanySurveyPage() {
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [deadline, setDeadline] = useState("");
+    const [isAnonymous, setIsAnonymous] = useState(true);
+    const [respondentFields, setRespondentFields] = useState<RespondentFields>({
+        name: false,
+        age: false,
+        gender: false,
+        join_year: false,
+        hire_type: false,
+    });
     const [questions, setQuestions] = useState<Question[]>(
         DEFAULT_QUESTIONS.map((text, i) => ({ id: String(i + 1), text, type: "score" }))
     );
@@ -49,6 +73,10 @@ export default function NewCompanySurveyPage() {
         setQuestions(questions.filter((q) => q.id !== id));
     };
 
+    const toggleRespondentField = (field: keyof RespondentFields) => {
+        setRespondentFields((prev) => ({ ...prev, [field]: !prev[field] }));
+    };
+
     const handleSave = async (status: "draft" | "active") => {
         if (!title.trim()) {
             alert("タイトルを入力してください");
@@ -66,6 +94,8 @@ export default function NewCompanySurveyPage() {
             description,
             deadline,
             status,
+            is_anonymous: isAnonymous,
+            respondent_fields: isAnonymous ? { name: false, age: false, gender: false, join_year: false, hire_type: false } : respondentFields,
             questions: validQuestions.map((q, i) => ({ text: q.text, type: q.type, order_index: i })),
         });
 
@@ -142,6 +172,47 @@ export default function NewCompanySurveyPage() {
                                     value={deadline}
                                     onChange={(e) => setDeadline(e.target.value)}
                                 />
+                            </div>
+
+                            {/* 匿名設定 */}
+                            <div className="border-t border-slate-100 pt-4 space-y-3">
+                                <Label>回答者情報</Label>
+                                <div className="flex gap-2 rounded-lg border border-slate-200 overflow-hidden">
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsAnonymous(true)}
+                                        className={`flex-1 py-2 text-sm font-medium transition-colors ${isAnonymous ? "bg-indigo-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50"}`}
+                                    >
+                                        匿名
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsAnonymous(false)}
+                                        className={`flex-1 py-2 text-sm font-medium transition-colors ${!isAnonymous ? "bg-indigo-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50"}`}
+                                    >
+                                        属性を収集
+                                    </button>
+                                </div>
+                                {isAnonymous ? (
+                                    <p className="text-xs text-slate-400">回答者の個人情報は収集しません。</p>
+                                ) : (
+                                    <div className="space-y-2">
+                                        <p className="text-xs text-slate-500">収集する項目を選択してください：</p>
+                                        {(Object.keys(RESPONDENT_FIELD_LABELS) as (keyof RespondentFields)[]).map((field) => (
+                                            <label key={field} className="flex items-center gap-2 cursor-pointer group">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={respondentFields[field]}
+                                                    onChange={() => toggleRespondentField(field)}
+                                                    className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                                />
+                                                <span className="text-sm text-slate-700 group-hover:text-slate-900">
+                                                    {RESPONDENT_FIELD_LABELS[field]}
+                                                </span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         </CardContent>
                     </Card>
