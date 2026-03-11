@@ -107,6 +107,8 @@ export async function createCompanySurvey(surveyData: {
     description: string;
     deadline: string;
     status: "draft" | "active" | "closed";
+    is_anonymous?: boolean;
+    respondent_fields?: Record<string, boolean>;
     questions: { text: string; type: "score" | "text"; order_index: number }[];
 }) {
     const companyId = await requireCompanyAuth();
@@ -120,6 +122,8 @@ export async function createCompanySurvey(surveyData: {
             deadline: surveyData.deadline || null,
             status: surveyData.status,
             company_id: companyId,
+            is_anonymous: surveyData.is_anonymous ?? true,
+            respondent_fields: surveyData.respondent_fields ?? { name: false, age: false, gender: false, join_year: false, hire_type: false },
         })
         .select()
         .single();
@@ -158,6 +162,8 @@ export async function updateCompanySurvey(
         description: string;
         deadline: string;
         status: "draft" | "active" | "closed";
+        is_anonymous?: boolean;
+        respondent_fields?: Record<string, boolean>;
         questions: { id?: string; text: string; type: "score" | "text"; order_index: number }[];
     }
 ) {
@@ -181,6 +187,8 @@ export async function updateCompanySurvey(
             description: surveyData.description || null,
             deadline: surveyData.deadline || null,
             status: surveyData.status,
+            is_anonymous: surveyData.is_anonymous ?? true,
+            respondent_fields: surveyData.respondent_fields ?? { name: false, age: false, gender: false, join_year: false, hire_type: false },
         })
         .eq("id", surveyId);
 
