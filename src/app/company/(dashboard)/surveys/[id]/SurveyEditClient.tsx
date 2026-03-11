@@ -64,7 +64,11 @@ export default function SurveyEditClient({ survey }: { survey: any }) {
         (survey.questions || []).map((q: any) => ({ id: q.id, text: q.text, type: q.type }))
     );
     const [links, setLinks] = useState<SurveyLink[]>(survey.survey_links || []);
-    const [linkExpiry, setLinkExpiry] = useState("");
+    const [linkExpiry, setLinkExpiry] = useState(() => {
+        if (!survey.deadline) return "";
+        const d = new Date(survey.deadline);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    });
 
     const toggleRespondentField = (field: keyof RespondentFields) => {
         setRespondentFields((prev) => ({ ...prev, [field]: !prev[field] }));
@@ -218,7 +222,14 @@ export default function SurveyEditClient({ survey }: { survey: any }) {
                             </div>
                             <div className="space-y-2">
                                 <Label>回答期限</Label>
-                                <Input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
+                                <Input
+                                    type="date"
+                                    value={deadline}
+                                    onChange={(e) => {
+                                        setDeadline(e.target.value);
+                                        setLinkExpiry(e.target.value);
+                                    }}
+                                />
                             </div>
                             <div className="flex items-center gap-2 pt-1">
                                 <span className="text-sm text-slate-500">ステータス:</span>
