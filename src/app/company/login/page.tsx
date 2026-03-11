@@ -1,24 +1,29 @@
 "use client";
 
 import { useState } from "react";
-import { companyLogin } from "@/app/actions/company-survey";
+import { companyLogin, companyPasswordLogin } from "@/app/actions/company-survey";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { KeyRound, Building2 } from "lucide-react";
+import { KeyRound, Building2, Mail, Lock } from "lucide-react";
+
+type Tab = "password" | "token";
 
 export default function CompanyLoginPage() {
+    const [activeTab, setActiveTab] = useState<Tab>("password");
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
 
-    async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
         e.preventDefault();
         setIsLoading(true);
         setError(null);
 
         const formData = new FormData(e.currentTarget);
-        const result = await companyLogin(formData);
+        const result = activeTab === "token"
+            ? await companyLogin(formData)
+            : await companyPasswordLogin(formData);
 
         if (result?.error) {
             setError(result.error);
@@ -34,32 +39,95 @@ export default function CompanyLoginPage() {
                         <Building2 className="w-8 h-8 text-indigo-400" />
                     </div>
                     <h1 className="text-2xl font-bold text-white">企業管理画面</h1>
-                    <p className="text-indigo-300 mt-1 text-sm">アクセストークンでログインしてください</p>
+                    <p className="text-indigo-300 mt-1 text-sm">ログインしてください</p>
                 </div>
 
                 <Card className="bg-indigo-950/50 border-indigo-800 shadow-2xl backdrop-blur">
+                    {/* タブ切り替え */}
+                    <div className="flex border-b border-indigo-800">
+                        <button
+                            type="button"
+                            onClick={() => { setActiveTab("password"); setError(null); }}
+                            className={`flex-1 py-3 text-sm font-medium transition-colors ${
+                                activeTab === "password"
+                                    ? "text-white border-b-2 border-indigo-400 bg-indigo-900/40"
+                                    : "text-indigo-400 hover:text-indigo-200"
+                            }`}
+                        >
+                            メールアドレス / パスワード
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => { setActiveTab("token"); setError(null); }}
+                            className={`flex-1 py-3 text-sm font-medium transition-colors ${
+                                activeTab === "token"
+                                    ? "text-white border-b-2 border-indigo-400 bg-indigo-900/40"
+                                    : "text-indigo-400 hover:text-indigo-200"
+                            }`}
+                        >
+                            初回 / トークン
+                        </button>
+                    </div>
+
                     <CardHeader>
-                        <CardTitle className="text-white text-lg">ログイン</CardTitle>
+                        <CardTitle className="text-white text-lg">
+                            {activeTab === "password" ? "ログイン" : "初回ログイン"}
+                        </CardTitle>
                         <CardDescription className="text-indigo-300">
-                            発行されたアクセストークンを入力してください
+                            {activeTab === "password"
+                                ? "設定済みのメールアドレスとパスワードでログインします"
+                                : "管理者から発行されたアクセストークンを入力してください。初回のみログインID・パスワードを設定します"}
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <form onSubmit={handleSubmit} className="space-y-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="access_token" className="text-indigo-200">アクセストークン</Label>
-                                <div className="relative">
-                                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-indigo-500" />
-                                    <Input
-                                        id="access_token"
-                                        name="access_token"
-                                        type="text"
-                                        placeholder="発行されたトークンを入力"
-                                        className="pl-9 bg-indigo-900/50 border-indigo-700 text-white placeholder:text-indigo-500 focus-visible:ring-indigo-500"
-                                        required
-                                    />
+                            {activeTab === "password" ? (
+                                <>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="login_id" className="text-indigo-200">メールアドレス</Label>
+                                        <div className="relative">
+                                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-indigo-500" />
+                                            <Input
+                                                id="login_id"
+                                                name="login_id"
+                                                type="email"
+                                                placeholder="example@company.com"
+                                                className="pl-9 bg-indigo-900/50 border-indigo-700 text-white placeholder:text-indigo-500 focus-visible:ring-indigo-500"
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="password" className="text-indigo-200">パスワード</Label>
+                                        <div className="relative">
+                                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-indigo-500" />
+                                            <Input
+                                                id="password"
+                                                name="password"
+                                                type="password"
+                                                placeholder="パスワードを入力"
+                                                className="pl-9 bg-indigo-900/50 border-indigo-700 text-white placeholder:text-indigo-500 focus-visible:ring-indigo-500"
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="space-y-2">
+                                    <Label htmlFor="access_token" className="text-indigo-200">アクセストークン</Label>
+                                    <div className="relative">
+                                        <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-indigo-500" />
+                                        <Input
+                                            id="access_token"
+                                            name="access_token"
+                                            type="text"
+                                            placeholder="発行されたトークンを入力"
+                                            className="pl-9 bg-indigo-900/50 border-indigo-700 text-white placeholder:text-indigo-500 focus-visible:ring-indigo-500"
+                                            required
+                                        />
+                                    </div>
                                 </div>
-                            </div>
+                            )}
 
                             {error && (
                                 <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">

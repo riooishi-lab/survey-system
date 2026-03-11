@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 const MASTER_SESSION_KEY = "master_auth";
 const COMPANY_SESSION_KEY = "company_id";
+const COMPANY_SETUP_SESSION_KEY = "company_setup_id";
 
 // ===== Master Auth =====
 
@@ -59,4 +60,27 @@ export async function setCompanySession(companyId: string) {
 export async function clearCompanySession() {
     const cookieStore = await cookies();
     cookieStore.delete(COMPANY_SESSION_KEY);
+}
+
+// ===== Company Setup Session (初回セットアップ用一時セッション) =====
+
+export async function getCompanySetupSession(): Promise<string | undefined> {
+    const cookieStore = await cookies();
+    return cookieStore.get(COMPANY_SETUP_SESSION_KEY)?.value;
+}
+
+export async function setCompanySetupSession(companyId: string) {
+    const cookieStore = await cookies();
+    cookieStore.set(COMPANY_SETUP_SESSION_KEY, companyId, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 60 * 60, // 1時間で期限切れ
+        path: "/",
+    });
+}
+
+export async function clearCompanySetupSession() {
+    const cookieStore = await cookies();
+    cookieStore.delete(COMPANY_SETUP_SESSION_KEY);
 }
