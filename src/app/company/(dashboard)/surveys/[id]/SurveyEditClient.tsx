@@ -321,7 +321,10 @@ export default function SurveyEditClient({ survey }: { survey: any }) {
                                                         </p>
                                                     )}
                                                     <p className="text-xs text-slate-400">
-                                                        発行: {new Date(link.created_at).toLocaleDateString("ja-JP")}
+                                                        発行: {new Date(link.created_at).toLocaleString("ja-JP", {
+                                                            year: "numeric", month: "2-digit", day: "2-digit",
+                                                            hour: "2-digit", minute: "2-digit"
+                                                        })}
                                                     </p>
                                                 </div>
                                                 <div className="flex gap-1">
@@ -380,10 +383,13 @@ export default function SurveyEditClient({ survey }: { survey: any }) {
                                 <CardTitle className="text-lg">設問一覧</CardTitle>
                                 <CardDescription>5段階評価または記述式</CardDescription>
                             </div>
-                            <Button onClick={addQuestion} variant="outline" size="sm" className="gap-1 border-indigo-200 text-indigo-700 hover:bg-indigo-50">
-                                <Plus className="h-4 w-4" />
-                                設問を追加
-                            </Button>
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm text-slate-500">{questions.length}問</span>
+                                <Button onClick={addQuestion} variant="outline" size="sm" className="gap-1 border-indigo-200 text-indigo-700 hover:bg-indigo-50">
+                                    <Plus className="h-4 w-4" />
+                                    設問を追加
+                                </Button>
+                            </div>
                         </CardHeader>
                         <CardContent className="p-0">
                             <div className="divide-y divide-slate-100">

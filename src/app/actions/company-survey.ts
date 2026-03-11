@@ -180,6 +180,36 @@ export async function updateCompanySurvey(
 
     if (!existing) return { error: "権限がありません" };
 
+    // 設問の変更（追加・削除・回答方式の変更）を検知し、既存リンクを無効化する
+    const { data: currentQuestions } = await supabase
+        .from("questions")
+        .select("id, text, type, order_index")
+        .eq("survey_id", surveyId)
+        .order("order_index");
+
+    const newValidQuestions = surveyData.questions;
+    const oldQuestions = currentQuestions || [];
+
+    const questionsChanged =
+        oldQuestions.length !== newValidQuestions.length ||
+        newValidQuestions.some((newQ, i) => {
+            const oldQ = oldQuestions[i];
+            if (!oldQ) return true;
+            // 既存IDなしの設問は新規追加
+            if (!newQ.id) return true;
+            // 回答方式の変更
+            if (newQ.type !== oldQ.type) return true;
+            return false;
+        });
+
+    if (questionsChanged) {
+        await supabase
+            .from("survey_links")
+            .update({ is_active: false })
+            .eq("survey_id", surveyId)
+            .eq("is_active", true);
+    }
+
     const { error: surveyError } = await supabase
         .from("surveys")
         .update({
