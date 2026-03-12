@@ -9,7 +9,7 @@ function DonutChart({ counts }: { counts: number[] }) {
     const total = counts.reduce((s, c) => s + c, 0);
     if (total === 0) return <div className="w-32 h-32 bg-slate-100 rounded-full flex items-center justify-center text-xs text-slate-400">データなし</div>;
 
-    const colors = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#6366f1"];
+    const colors = ["#ef4444", "#fb923c", "#fbbf24", "#34d399", "#818cf8"];
     let cumulative = 0;
     const radius = 40;
     const cx = 56, cy = 56;
@@ -47,7 +47,7 @@ function DonutChart({ counts }: { counts: number[] }) {
             <div className="space-y-1.5">
                 {counts.map((count, i) => (
                     <div key={i} className="flex items-center gap-2 text-xs">
-                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: ["#ef4444", "#f97316", "#eab308", "#22c55e", "#6366f1"][i] }} />
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: ["#ef4444", "#fb923c", "#fbbf24", "#34d399", "#818cf8"][i] }} />
                         <span className="text-slate-500">{i + 1}: {count}件</span>
                         {total > 0 && <span className="text-slate-400">({Math.round((count / total) * 100)}%)</span>}
                     </div>
