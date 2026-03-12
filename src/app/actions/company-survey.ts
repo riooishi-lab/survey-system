@@ -13,6 +13,7 @@ import {
     clearCompanySetupSession,
 } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { sendPasswordResetEmail } from "@/lib/email";
 
 const scryptAsync = promisify(scrypt);
 
@@ -163,6 +164,111 @@ export async function setupCompanyCredentials(formData: FormData) {
 export async function companyLogout() {
     await clearCompanySession();
     redirect("/company/login");
+}
+
+// パスワードリセット申請: トークン生成＆メール送信
+export async function requestPasswordReset(formData: FormData) {
+    const email = (formData.get("email") as string)?.trim().toLowerCase();
+
+    if (!email) {
+        return { error: "メールアドレスを入力してください" };
+    }
+
+    const supabase = getSupabase();
+    const { data: company } = await supabase
+        .from("companies")
+        .select("id, login_id, status, is_initialized")
+        .eq("login_id", email)
+        .single();
+
+    // セキュリティ上、メールが存在しなくてもエラーを返さず成功扱いにする
+    if (!company || company.status === "inactive" || !company.is_initialized) {
+        return { success: true };
+    }
+
+    // 既存の未使用トークンを無効化（上書き）
+    await supabase
+        .from("password_reset_tokens")
+        .update({ used_at: new Date().toISOString() })
+        .eq("company_id", company.id)
+        .is("used_at", null);
+
+    const { data: tokenData, error: tokenError } = await supabase
+        .from("password_reset_tokens")
+        .insert({ company_id: company.id })
+        .select("token")
+        .single();
+
+    if (tokenError || !tokenData) {
+        return { error: "処理に失敗しました。しばらくしてから再度お試しください" };
+    }
+
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+    const resetUrl = `${baseUrl}/company/reset-password/${tokenData.token}`;
+
+    try {
+        await sendPasswordResetEmail(email, resetUrl);
+    } catch (err) {
+        console.error("Email send error:", err);
+        return { error: "メールの送信に失敗しました。しばらくしてから再度お試しください" };
+    }
+
+    return { success: true };
+}
+
+// パスワードリセット確定: トークン検証＆パスワード更新
+export async function resetPassword(token: string, formData: FormData) {
+    const password = (formData.get("password") as string);
+    const passwordConfirm = (formData.get("password_confirm") as string);
+
+    if (!password || password.length < 8) {
+        return { error: "パスワードは8文字以上で入力してください" };
+    }
+
+    if (password !== passwordConfirm) {
+        return { error: "パスワードが一致しません" };
+    }
+
+    if (!token) {
+        return { error: "無効なリセットリンクです" };
+    }
+
+    const supabase = getSupabase();
+    const { data: tokenData, error: tokenError } = await supabase
+        .from("password_reset_tokens")
+        .select("id, company_id, expires_at, used_at")
+        .eq("token", token)
+        .single();
+
+    if (tokenError || !tokenData) {
+        return { error: "無効なリセットリンクです" };
+    }
+
+    if (tokenData.used_at) {
+        return { error: "このリセットリンクはすでに使用済みです" };
+    }
+
+    if (new Date(tokenData.expires_at) < new Date()) {
+        return { error: "リセットリンクの有効期限が切れています。再度申請してください" };
+    }
+
+    const passwordHash = await hashPassword(password);
+
+    const { error: updateError } = await supabase
+        .from("companies")
+        .update({ password_hash: passwordHash })
+        .eq("id", tokenData.company_id);
+
+    if (updateError) {
+        return { error: "パスワードの更新に失敗しました" };
+    }
+
+    await supabase
+        .from("password_reset_tokens")
+        .update({ used_at: new Date().toISOString() })
+        .eq("id", tokenData.id);
+
+    return { success: true };
 }
 
 export async function getCompanyInfo() {
@@ -420,7 +526,7 @@ export async function issueSurveyLink(surveyId: string, expiresAt?: string) {
 }
 
 export async function deactivateSurveyLink(linkId: string) {
-    const companyId = await requireCompanyAuth();
+    await requireCompanyAuth();
     const supabase = getSupabase();
 
     // Verify the link belongs to a company survey

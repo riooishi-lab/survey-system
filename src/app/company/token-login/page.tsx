@@ -2,14 +2,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { companyPasswordLogin } from "@/app/actions/company-survey";
+import { companyLogin } from "@/app/actions/company-survey";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, Mail, Lock } from "lucide-react";
+import { KeyRound, Building2 } from "lucide-react";
 
-export default function CompanyLoginPage() {
+export default function CompanyTokenLoginPage() {
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -19,7 +19,7 @@ export default function CompanyLoginPage() {
         setError(null);
 
         const formData = new FormData(e.currentTarget);
-        const result = await companyPasswordLogin(formData);
+        const result = await companyLogin(formData);
 
         if (result?.error) {
             setError(result.error);
@@ -35,52 +35,31 @@ export default function CompanyLoginPage() {
                         <Building2 className="w-8 h-8 text-indigo-400" />
                     </div>
                     <h1 className="text-2xl font-bold text-white">企業管理画面</h1>
-                    <p className="text-indigo-300 mt-1 text-sm">ログインしてください</p>
+                    <p className="text-indigo-300 mt-1 text-sm">初回ログイン</p>
                 </div>
 
                 <Card className="bg-indigo-950/50 border-indigo-800 shadow-2xl backdrop-blur">
                     <CardHeader>
-                        <CardTitle className="text-white text-lg">ログイン</CardTitle>
+                        <CardTitle className="text-white text-lg">初回ログイン</CardTitle>
                         <CardDescription className="text-indigo-300">
-                            登録済みのメールアドレスとパスワードでログインします
+                            管理者から発行されたアクセストークンを入力してください。
+                            メールアドレスとパスワードを設定してアカウントを有効化します。
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div className="space-y-2">
-                                <Label htmlFor="login_id" className="text-indigo-200">メールアドレス</Label>
+                                <Label htmlFor="access_token" className="text-indigo-200">アクセストークン</Label>
                                 <div className="relative">
-                                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-indigo-500" />
+                                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-indigo-500" />
                                     <Input
-                                        id="login_id"
-                                        name="login_id"
-                                        type="email"
-                                        placeholder="example@company.com"
+                                        id="access_token"
+                                        name="access_token"
+                                        type="text"
+                                        placeholder="発行されたトークンを入力"
                                         className="pl-9 bg-indigo-900/50 border-indigo-700 text-white placeholder:text-indigo-500 focus-visible:ring-indigo-500"
                                         required
                                     />
-                                </div>
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="password" className="text-indigo-200">パスワード</Label>
-                                <div className="relative">
-                                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-indigo-500" />
-                                    <Input
-                                        id="password"
-                                        name="password"
-                                        type="password"
-                                        placeholder="パスワードを入力"
-                                        className="pl-9 bg-indigo-900/50 border-indigo-700 text-white placeholder:text-indigo-500 focus-visible:ring-indigo-500"
-                                        required
-                                    />
-                                </div>
-                                <div className="text-right">
-                                    <Link
-                                        href="/company/reset-password"
-                                        className="text-xs text-indigo-400 hover:text-indigo-200 transition-colors"
-                                    >
-                                        パスワードを忘れた方はこちら
-                                    </Link>
                                 </div>
                             </div>
 
@@ -95,15 +74,15 @@ export default function CompanyLoginPage() {
                                 className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium"
                                 disabled={isLoading}
                             >
-                                {isLoading ? "ログイン中..." : "ログイン"}
+                                {isLoading ? "確認中..." : "トークンで認証する"}
                             </Button>
 
                             <div className="text-center pt-2 border-t border-indigo-800">
                                 <Link
-                                    href="/company/token-login"
+                                    href="/company/login"
                                     className="text-xs text-indigo-400 hover:text-indigo-200 transition-colors"
                                 >
-                                    初回ログイン（アクセストークンをお持ちの方）はこちら
+                                    ← ログイン画面に戻る
                                 </Link>
                             </div>
                         </form>
