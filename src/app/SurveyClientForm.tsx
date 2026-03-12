@@ -17,7 +17,6 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
 import { submitSurveyResponse } from "./actions/survey";
 
 const ratingOptions = [
@@ -130,37 +129,51 @@ export default function SurveyClientForm({
 
     if (isSubmitted) {
         return (
-            <div className="min-h-screen bg-slate-50 py-12 px-4 flex items-center justify-center">
-                <div className="text-center p-8 bg-white rounded-xl shadow-sm border border-slate-200 max-w-md w-full">
-                    <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
+            <div className="min-h-screen bg-[#ede7f6] py-12 px-4 flex flex-col items-center justify-center">
+                <div className="w-full max-w-2xl">
+                    {/* ヘッダーバー */}
+                    <div className="h-2 bg-[#673ab7] rounded-t-xl" />
+                    <div className="bg-white rounded-b-xl shadow-sm border border-slate-200 p-8">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 bg-[#673ab7] rounded-full flex items-center justify-center shrink-0">
+                                <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                </svg>
+                            </div>
+                            <h2 className="text-2xl font-normal text-slate-800">回答を記録しました</h2>
+                        </div>
+                        <p className="text-slate-600 ml-[52px]">
+                            ご回答いただきありがとうございました。
+                        </p>
                     </div>
-                    <h2 className="text-2xl font-bold text-slate-900 mb-2">回答ありがとうございました</h2>
-                    <p className="text-slate-600">あなたの意見は貴重なフィードバックとして活用されます。</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-3xl mx-auto">
-                <div className="mb-8 text-center relative">
-                    {isPreview && (
-                        <div className="absolute top-0 right-0">
-                            <Badge className="bg-amber-500 hover:bg-amber-600 text-white">
-                                プレビュー中
-                            </Badge>
-                        </div>
-                    )}
-                    <h1 className="text-3xl font-bold text-slate-900 mb-2">{title}</h1>
-                    <p className="text-slate-600 whitespace-pre-wrap">{description || "あなたの現在の職場環境について、最も当てはまるものを選択してください。"}</p>
+        <div className="min-h-screen bg-[#ede7f6] py-10 px-4 sm:px-6 lg:px-8">
+            <div className="max-w-2xl mx-auto">
+                {/* タイトルカード */}
+                <div className="mb-4 relative">
+                    <div className="h-2.5 bg-[#673ab7] rounded-t-xl" />
+                    <div className="bg-white rounded-b-xl shadow-sm border border-slate-200 px-8 py-6">
+                        {isPreview && (
+                            <div className="mb-3">
+                                <Badge className="bg-amber-500 hover:bg-amber-600 text-white">
+                                    プレビュー中
+                                </Badge>
+                            </div>
+                        )}
+                        <h1 className="text-3xl font-normal text-slate-800 mb-3">{title}</h1>
+                        {(description) && (
+                            <p className="text-slate-600 whitespace-pre-wrap text-sm">{description}</p>
+                        )}
+                    </div>
                 </div>
 
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                         {/* 属性フォーム（非匿名の場合のみ表示） */}
                         {!isAnonymous && (
                             <Card className="p-6 md:p-8 bg-white rounded-xl shadow-sm border-slate-200">
@@ -248,15 +261,11 @@ export default function SurveyClientForm({
                                 name={`responses.${question.id}`}
                                 render={({ field }) => (
                                     <FormItem>
-                                        <Card className="p-6 md:p-8 bg-white rounded-xl shadow-sm border-slate-200">
-                                            <div className="flex items-start gap-4 mb-6">
-                                                <Badge className="bg-blue-600 hover:bg-blue-700 text-white text-base px-3 py-1 rounded-md mb-1 shrink-0">
-                                                    Q{index + 1}
-                                                </Badge>
-                                                <p className="text-lg font-medium text-slate-900 pt-0.5">
-                                                    {question.text}
-                                                </p>
-                                            </div>
+                                        <Card className="p-6 bg-white rounded-xl shadow-sm border-slate-200">
+                                            <p className="text-base text-slate-800 mb-4">
+                                                <span className="text-slate-400 text-sm mr-2">{index + 1}.</span>
+                                                {question.text}
+                                            </p>
 
                                             <FormControl>
                                                 {question.type === "score" ? (
@@ -264,36 +273,28 @@ export default function SurveyClientForm({
                                                         onValueChange={(val) => field.onChange({ type: "score", value: val })}
                                                         defaultValue={field.value?.value || ""}
                                                         value={field.value?.value || ""}
-                                                        className="grid grid-cols-2 md:grid-cols-5 gap-3"
+                                                        className="space-y-2"
                                                     >
                                                         {ratingOptions.map((option) => (
-                                                            <div key={option.value}>
+                                                            <div key={option.value} className="flex items-center gap-3">
                                                                 <RadioGroupItem
                                                                     value={option.value}
                                                                     id={`${question.id}-${option.value}`}
-                                                                    className="peer sr-only"
+                                                                    className="border-slate-400 text-[#673ab7] focus-visible:ring-[#673ab7] data-[state=checked]:bg-[#673ab7] data-[state=checked]:border-[#673ab7]"
                                                                 />
                                                                 <label
                                                                     htmlFor={`${question.id}-${option.value}`}
-                                                                    className={cn(
-                                                                        "flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-white p-4 hover:bg-slate-50 cursor-pointer transition-all h-full",
-                                                                        "peer-data-[state=checked]:border-blue-500 peer-data-[state=checked]:bg-blue-50"
-                                                                    )}
+                                                                    className="text-sm text-slate-700 cursor-pointer select-none"
                                                                 >
-                                                                    <span className="text-2xl font-bold text-slate-700 mb-2">
-                                                                        {option.value}
-                                                                    </span>
-                                                                    <span className="text-xs text-slate-500 text-center leading-tight">
-                                                                        {option.label}
-                                                                    </span>
+                                                                    {option.value}　{option.label}
                                                                 </label>
                                                             </div>
                                                         ))}
                                                     </RadioGroup>
                                                 ) : (
                                                     <Textarea
-                                                        placeholder="回答を自由に入力してください"
-                                                        className="min-h-[120px] resize-y bg-white text-base focus-visible:ring-blue-500 shadow-sm"
+                                                        placeholder="回答を入力してください"
+                                                        className="min-h-[120px] resize-y bg-white text-base border-0 border-b-2 border-slate-300 rounded-none focus-visible:ring-0 focus-visible:border-[#673ab7] shadow-none px-0"
                                                         value={field.value?.value || ""}
                                                         onChange={(e) => field.onChange({ type: "text", value: e.target.value })}
                                                     />
@@ -306,14 +307,14 @@ export default function SurveyClientForm({
                             />
                         ))}
 
-                        <div className="flex justify-center pt-4">
+                        <div className="flex justify-between items-center pt-2">
                             <Button
                                 type="submit"
                                 size="lg"
                                 disabled={isSubmitting}
-                                className="px-12 bg-blue-600 hover:bg-blue-700 text-white rounded-full font-semibold"
+                                className="px-8 bg-[#673ab7] hover:bg-[#5e35b1] text-white rounded font-medium"
                             >
-                                {isPreview ? "プレビュー送信をテスト" : (isSubmitting ? "送信中..." : "回答を送信する")}
+                                {isPreview ? "プレビュー送信をテスト" : (isSubmitting ? "送信中..." : "送信")}
                             </Button>
                         </div>
                     </form>
