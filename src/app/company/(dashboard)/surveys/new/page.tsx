@@ -100,6 +100,17 @@ export default function NewCompanySurveyPage() {
             return;
         }
 
+        // 選択式の選択肢バリデーション
+        for (const q of validQuestions) {
+            if (q.type === "choice") {
+                const nonEmpty = (q.options ?? []).filter(Boolean);
+                if (nonEmpty.length < 2) {
+                    alert("選択式の設問には、2つ以上の選択肢を入力してください");
+                    return;
+                }
+            }
+        }
+
         setIsSubmitting(true);
         const result = await createCompanySurvey({
             title,
