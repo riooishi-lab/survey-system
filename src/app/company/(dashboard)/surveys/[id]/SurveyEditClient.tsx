@@ -19,7 +19,7 @@ import {
     ExternalLink, XCircle, Loader2
 } from "lucide-react";
 
-type Question = { id?: string; text: string; type: "score" | "text" };
+type Question = { id?: string; text: string; type: "score" | "text" | "choice"; options?: string[] };
 type SurveyLink = { id: string; token: string; is_active: boolean; expires_at: string | null; created_at: string };
 
 type RespondentFields = {
@@ -61,14 +61,9 @@ export default function SurveyEditClient({ survey }: { survey: any }) {
         hire_type: survey.respondent_fields?.hire_type ?? false,
     });
     const [questions, setQuestions] = useState<Question[]>(
-        (survey.questions || []).map((q: any) => ({ id: q.id, text: q.text, type: q.type }))
+        (survey.questions || []).map((q: any) => ({ id: q.id, text: q.text, type: q.type, options: q.options ?? undefined }))
     );
     const [links, setLinks] = useState<SurveyLink[]>(survey.survey_links || []);
-    const [linkExpiry, setLinkExpiry] = useState(() => {
-        if (!survey.deadline) return "";
-        const d = new Date(survey.deadline);
-        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    });
 
     const toggleRespondentField = (field: keyof RespondentFields) => {
         setRespondentFields((prev) => ({ ...prev, [field]: !prev[field] }));
@@ -84,8 +79,20 @@ export default function SurveyEditClient({ survey }: { survey: any }) {
         setQuestions(questions.map((q, i) => (i === index ? { ...q, text } : q)));
     };
 
-    const updateType = (index: number, type: "score" | "text") => {
-        setQuestions(questions.map((q, i) => (i === index ? { ...q, type } : q)));
+    const updateType = (index: number, type: "score" | "text" | "choice") => {
+        setQuestions(questions.map((q, i) => i === index ? { ...q, type, options: type === "choice" ? (q.options ?? ["", ""]) : undefined } : q));
+    };
+
+    const updateOption = (index: number, optIndex: number, value: string) => {
+        setQuestions(questions.map((q, i) => i === index ? { ...q, options: (q.options ?? []).map((o, oi) => oi === optIndex ? value : o) } : q));
+    };
+
+    const addOption = (index: number) => {
+        setQuestions(questions.map((q, i) => i === index ? { ...q, options: [...(q.options ?? []), ""] } : q));
+    };
+
+    const removeOption = (index: number, optIndex: number) => {
+        setQuestions(questions.map((q, i) => i === index ? { ...q, options: (q.options ?? []).filter((_, oi) => oi !== optIndex) } : q));
     };
 
     const removeQuestion = (index: number) => {
@@ -111,6 +118,7 @@ export default function SurveyEditClient({ survey }: { survey: any }) {
                 text: q.text,
                 type: q.type,
                 order_index: i,
+                options: q.options,
             })),
         });
 
@@ -126,7 +134,7 @@ export default function SurveyEditClient({ survey }: { survey: any }) {
 
     const handleIssueLink = async () => {
         setIsIssuingLink(true);
-        const result = await issueSurveyLink(survey.id, linkExpiry || undefined);
+        const result = await issueSurveyLink(survey.id, deadline || undefined);
         if (result.error) {
             alert("エラー: " + result.error);
         } else if (result.token) {
@@ -134,11 +142,10 @@ export default function SurveyEditClient({ survey }: { survey: any }) {
                 id: Date.now().toString(),
                 token: result.token,
                 is_active: true,
-                expires_at: linkExpiry || null,
+                expires_at: deadline || null,
                 created_at: new Date().toISOString(),
             };
             setLinks([newLink, ...links]);
-            setLinkExpiry("");
         }
         setIsIssuingLink(false);
     };
@@ -225,10 +232,7 @@ export default function SurveyEditClient({ survey }: { survey: any }) {
                                 <Input
                                     type="date"
                                     value={deadline}
-                                    onChange={(e) => {
-                                        setDeadline(e.target.value);
-                                        setLinkExpiry(e.target.value);
-                                    }}
+                                    onChange={(e) => setDeadline(e.target.value)}
                                 />
                             </div>
                             <div className="flex items-center gap-2 pt-1">
@@ -291,14 +295,11 @@ export default function SurveyEditClient({ survey }: { survey: any }) {
                             <CardDescription>社員に配布するリンクを発行します</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <div className="space-y-2">
-                                <Label>有効期限（任意）</Label>
-                                <Input
-                                    type="date"
-                                    value={linkExpiry}
-                                    onChange={(e) => setLinkExpiry(e.target.value)}
-                                />
-                            </div>
+                            {deadline && (
+                                <p className="text-xs text-slate-500">
+                                    有効期限: {new Date(deadline).toLocaleDateString("ja-JP")}（回答期限と同じ）
+                                </p>
+                            )}
                             <Button
                                 onClick={handleIssueLink}
                                 disabled={isIssuingLink || status === "closed"}
@@ -409,14 +410,14 @@ export default function SurveyEditClient({ survey }: { survey: any }) {
                                         <Badge className="bg-indigo-600 text-white shrink-0 mt-1">Q{index + 1}</Badge>
                                         <div className="flex-1 space-y-3">
                                             <div className="flex rounded-md" role="group">
-                                                {(["score", "text"] as const).map((type) => (
+                                                {(["score", "text", "choice"] as const).map((type) => (
                                                     <button
                                                         key={type}
                                                         type="button"
                                                         onClick={() => updateType(index, type)}
                                                         className={`px-4 py-1.5 text-xs font-medium border border-slate-200 first:rounded-l-lg last:rounded-r-lg last:border-l-0 hover:bg-slate-50 transition-colors ${q.type === type ? "bg-indigo-50 text-indigo-600 border-indigo-200" : "bg-white text-slate-700"}`}
                                                     >
-                                                        {type === "score" ? "5段階評価" : "記述式"}
+                                                        {type === "score" ? "5段階評価" : type === "text" ? "記述式" : "選択式"}
                                                     </button>
                                                 ))}
                                             </div>
@@ -426,6 +427,34 @@ export default function SurveyEditClient({ survey }: { survey: any }) {
                                                 placeholder="質問文を入力してください"
                                                 className="min-h-[80px] bg-white text-base resize-none focus-visible:ring-indigo-500 shadow-sm"
                                             />
+                                            {q.type === "choice" && (
+                                                <div className="space-y-2">
+                                                    <p className="text-xs text-slate-500 font-medium">選択肢（2つ以上）</p>
+                                                    {(q.options ?? []).map((opt, oi) => (
+                                                        <div key={oi} className="flex items-center gap-2">
+                                                            <span className="text-xs text-slate-400 w-5 text-right shrink-0">{oi + 1}.</span>
+                                                            <Input
+                                                                value={opt}
+                                                                onChange={(e) => updateOption(index, oi, e.target.value)}
+                                                                placeholder={`選択肢 ${oi + 1}`}
+                                                                className="h-8 text-sm"
+                                                            />
+                                                            {(q.options ?? []).length > 2 && (
+                                                                <button type="button" onClick={() => removeOption(index, oi)} className="text-slate-400 hover:text-red-500">
+                                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => addOption(index)}
+                                                        className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800"
+                                                    >
+                                                        <Plus className="h-3 w-3" /> 選択肢を追加
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
                                         <Button
                                             variant="ghost"

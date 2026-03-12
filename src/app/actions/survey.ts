@@ -163,7 +163,7 @@ export async function updateSurvey(id: string, data: {
 
 export async function submitSurveyResponse(
     surveyId: string,
-    responses: Record<string, { type: "score" | "text"; value: string }>,
+    responses: Record<string, { type: "score" | "text" | "choice"; value: string }>,
     respondentData?: {
         name?: string;
         age?: number;
@@ -196,7 +196,7 @@ export async function submitSurveyResponse(
         response_id: response.id,
         question_id: questionId,
         score: answer.type === "score" ? parseInt(answer.value, 10) : null,
-        text_value: answer.type === "text" ? answer.value : null,
+        text_value: answer.type === "text" || answer.type === "choice" ? answer.value : null,
     }));
 
     const { error: answersError } = await supabase
