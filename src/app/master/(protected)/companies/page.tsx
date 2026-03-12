@@ -4,6 +4,7 @@ import { requireMasterAuth } from "@/lib/auth";
 import { Building2, PlusCircle, Mail, FileText, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import CompanyStatusToggle from "./CompanyStatusToggle";
+import CompanyDeleteButton from "./CompanyDeleteButton";
 
 export const dynamic = "force-dynamic";
 
@@ -77,10 +78,14 @@ export default async function MasterCompaniesPage() {
                                             </div>
                                         </div>
 
-                                        <div className="flex items-center gap-3">
+                                        <div className="flex items-center gap-2">
                                             <CompanyStatusToggle
                                                 companyId={company.id}
                                                 currentStatus={company.status}
+                                            />
+                                            <CompanyDeleteButton
+                                                companyId={company.id}
+                                                companyName={company.name}
                                             />
                                         </div>
                                     </div>

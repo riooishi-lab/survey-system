@@ -93,3 +93,20 @@ export async function updateCompanyStatus(companyId: string, status: "active" | 
 
     return { success: true };
 }
+
+export async function deleteCompany(companyId: string) {
+    await requireMasterAuth();
+    const supabase = getSupabase();
+
+    const { error } = await supabase
+        .from("companies")
+        .delete()
+        .eq("id", companyId);
+
+    if (error) {
+        console.error("Company deletion error:", error);
+        return { error: "企業の削除に失敗しました" };
+    }
+
+    return { success: true };
+}
