@@ -36,7 +36,7 @@ const DEFAULT_QUESTIONS = [
     "現在の仕事に対して、やりがいを感じられていますか？",
 ];
 
-type Question = { id: string; text: string; type: "score" | "text" };
+type Question = { id: string; text: string; type: "score" | "text" | "choice"; options?: string[] };
 
 export default function NewCompanySurveyPage() {
     const router = useRouter();
@@ -64,8 +64,20 @@ export default function NewCompanySurveyPage() {
         setQuestions(questions.map((q) => (q.id === id ? { ...q, text } : q)));
     };
 
-    const updateType = (id: string, type: "score" | "text") => {
-        setQuestions(questions.map((q) => (q.id === id ? { ...q, type } : q)));
+    const updateType = (id: string, type: "score" | "text" | "choice") => {
+        setQuestions(questions.map((q) => (q.id === id ? { ...q, type, options: type === "choice" ? (q.options ?? ["", ""]) : undefined } : q)));
+    };
+
+    const updateOption = (id: string, optIndex: number, value: string) => {
+        setQuestions(questions.map((q) => q.id === id ? { ...q, options: (q.options ?? []).map((o, i) => i === optIndex ? value : o) } : q));
+    };
+
+    const addOption = (id: string) => {
+        setQuestions(questions.map((q) => q.id === id ? { ...q, options: [...(q.options ?? []), ""] } : q));
+    };
+
+    const removeOption = (id: string, optIndex: number) => {
+        setQuestions(questions.map((q) => q.id === id ? { ...q, options: (q.options ?? []).filter((_, i) => i !== optIndex) } : q));
     };
 
     const removeQuestion = (id: string) => {
@@ -96,7 +108,7 @@ export default function NewCompanySurveyPage() {
             status,
             is_anonymous: isAnonymous,
             respondent_fields: isAnonymous ? { name: false, age: false, gender: false, join_year: false, hire_type: false } : respondentFields,
-            questions: validQuestions.map((q, i) => ({ text: q.text, type: q.type, order_index: i })),
+            questions: validQuestions.map((q, i) => ({ text: q.text, type: q.type, order_index: i, options: q.options })),
         });
 
         if (result.error) {
@@ -238,14 +250,14 @@ export default function NewCompanySurveyPage() {
                                         <Badge className="bg-indigo-600 text-white shrink-0 mt-1">Q{index + 1}</Badge>
                                         <div className="flex-1 space-y-3">
                                             <div className="flex rounded-md" role="group">
-                                                {(["score", "text"] as const).map((type) => (
+                                                {(["score", "text", "choice"] as const).map((type) => (
                                                     <button
                                                         key={type}
                                                         type="button"
                                                         onClick={() => updateType(q.id, type)}
                                                         className={`px-4 py-1.5 text-xs font-medium border border-slate-200 first:rounded-l-lg last:rounded-r-lg last:border-l-0 hover:bg-slate-50 transition-colors ${q.type === type ? "bg-indigo-50 text-indigo-600 border-indigo-200 z-10" : "bg-white text-slate-700"}`}
                                                     >
-                                                        {type === "score" ? "5段階評価" : "記述式"}
+                                                        {type === "score" ? "5段階評価" : type === "text" ? "記述式" : "選択式"}
                                                     </button>
                                                 ))}
                                             </div>
@@ -255,6 +267,34 @@ export default function NewCompanySurveyPage() {
                                                 placeholder="質問文を入力してください"
                                                 className="min-h-[80px] bg-white text-base resize-none focus-visible:ring-indigo-500 shadow-sm"
                                             />
+                                            {q.type === "choice" && (
+                                                <div className="space-y-2">
+                                                    <p className="text-xs text-slate-500 font-medium">選択肢（2つ以上）</p>
+                                                    {(q.options ?? []).map((opt, oi) => (
+                                                        <div key={oi} className="flex items-center gap-2">
+                                                            <span className="text-xs text-slate-400 w-5 text-right shrink-0">{oi + 1}.</span>
+                                                            <Input
+                                                                value={opt}
+                                                                onChange={(e) => updateOption(q.id, oi, e.target.value)}
+                                                                placeholder={`選択肢 ${oi + 1}`}
+                                                                className="h-8 text-sm"
+                                                            />
+                                                            {(q.options ?? []).length > 2 && (
+                                                                <button type="button" onClick={() => removeOption(q.id, oi)} className="text-slate-400 hover:text-red-500">
+                                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => addOption(q.id)}
+                                                        className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800"
+                                                    >
+                                                        <Plus className="w-3 h-3" /> 選択肢を追加
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
                                         <Button
                                             variant="ghost"
