@@ -40,7 +40,7 @@ export async function companyLogin(formData: FormData) {
     const supabase = getSupabase();
     const { data, error } = await supabase
         .from("companies")
-        .select("id, name, status, is_initialized")
+        .select("*")
         .eq("access_token", token)
         .single();
 
@@ -52,8 +52,8 @@ export async function companyLogin(formData: FormData) {
         return { error: "このアカウントは無効化されています。管理者にお問い合わせください" };
     }
 
-    // 初回ログイン: セットアップページへ
-    if (!data.is_initialized) {
+    // 初回ログイン: セットアップページへ (is_initialized が明示的に false の場合のみ)
+    if (data.is_initialized === false) {
         await setCompanySetupSession(data.id);
         redirect("/company/setup");
     }
