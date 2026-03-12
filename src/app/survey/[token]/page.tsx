@@ -22,7 +22,7 @@ export default async function EmployeeSurveyPage({ params }: { params: Promise<{
                 status,
                 is_anonymous,
                 respondent_fields,
-                questions (*)
+                questions (id, text, type, order_index, options)
             )
         `)
         .eq("token", token)
