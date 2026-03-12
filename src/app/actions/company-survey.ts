@@ -340,7 +340,7 @@ export async function createCompanySurvey(surveyData: {
     status: "draft" | "active" | "closed";
     is_anonymous?: boolean;
     respondent_fields?: Record<string, boolean>;
-    questions: { text: string; type: "score" | "text"; order_index: number }[];
+    questions: { text: string; type: "score" | "text" | "choice"; order_index: number; options?: string[] }[];
 }) {
     const companyId = await requireCompanyAuth();
     const supabase = getSupabase();
@@ -373,6 +373,7 @@ export async function createCompanySurvey(surveyData: {
                     text: q.text,
                     type: q.type,
                     order_index: q.order_index,
+                    options: q.type === "choice" ? (q.options ?? []) : null,
                 }))
             );
 
@@ -395,7 +396,7 @@ export async function updateCompanySurvey(
         status: "draft" | "active" | "closed";
         is_anonymous?: boolean;
         respondent_fields?: Record<string, boolean>;
-        questions: { id?: string; text: string; type: "score" | "text"; order_index: number }[];
+        questions: { id?: string; text: string; type: "score" | "text" | "choice"; order_index: number; options?: string[] }[];
     }
 ) {
     const companyId = await requireCompanyAuth();
@@ -474,7 +475,7 @@ export async function updateCompanySurvey(
     for (const q of toUpdate) {
         await supabase
             .from("questions")
-            .update({ text: q.text, type: q.type, order_index: q.order_index })
+            .update({ text: q.text, type: q.type, order_index: q.order_index, options: q.type === "choice" ? (q.options ?? []) : null })
             .eq("id", q.id!);
     }
 
@@ -485,6 +486,7 @@ export async function updateCompanySurvey(
                 text: q.text,
                 type: q.type,
                 order_index: q.order_index,
+                options: q.type === "choice" ? (q.options ?? []) : null,
             }))
         );
     }
@@ -561,6 +563,11 @@ export async function getCompanySurveyResults(surveyId: string) {
             responses (
                 id,
                 created_at,
+                respondent_name,
+                respondent_age,
+                respondent_gender,
+                respondent_join_year,
+                respondent_hire_type,
                 answers (*)
             )
         `)

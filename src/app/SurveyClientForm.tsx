@@ -1,22 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import * as z from "zod";
-
 import { Button } from "@/components/ui/button";
-import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormMessage,
-} from "@/components/ui/form";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { submitSurveyResponse } from "./actions/survey";
 
 const ratingOptions = [
@@ -50,13 +37,15 @@ export default function SurveyClientForm({
     surveyId: string;
     title: string;
     description: string | null;
-    questions: { id: string; text: string; type: "score" | "text" }[];
+    questions: { id: string; text: string; type: "score" | "text" | "choice"; options?: string[] }[];
     isPreview?: boolean;
     isAnonymous?: boolean;
     respondentFields?: RespondentFieldsConfig;
 }) {
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [answers, setAnswers] = useState<Record<string, string>>({});
+    const [errors, setErrors] = useState<Record<string, boolean>>({});
 
     // 属性フィールドの state
     const [respondentName, setRespondentName] = useState("");
@@ -65,29 +54,22 @@ export default function SurveyClientForm({
     const [respondentJoinYear, setRespondentJoinYear] = useState("");
     const [respondentHireType, setRespondentHireType] = useState("");
 
-    const formSchema = z.object({
-        responses: z.record(
-            z.string(),
-            z.object({
-                type: z.enum(["score", "text"]),
-                value: z.string().min(1, { message: "回答を入力してください" })
-            })
-        ),
-    });
+    const setAnswer = (questionId: string, value: string) => {
+        setAnswers((prev) => ({ ...prev, [questionId]: value }));
+        setErrors((prev) => ({ ...prev, [questionId]: false }));
+    };
 
-    const form = useForm<z.infer<typeof formSchema>>({
-        resolver: zodResolver(formSchema),
-        defaultValues: {
-            responses: questions.reduce((acc, q) => ({ ...acc, [q.id]: { type: q.type, value: "" } }), {}),
-        },
-    });
+    async function handleSubmit(e: React.FormEvent) {
+        e.preventDefault();
 
-    async function onSubmit(values: z.infer<typeof formSchema>) {
-        // Check if all questions are answered
-        const answeredCount = Object.keys(values.responses).filter(k => values.responses[k]?.value !== "").length;
-        if (answeredCount !== questions.length) {
-            alert("すべての設問に回答してください");
-            return;
+        // Validate all questions answered
+        const newErrors: Record<string, boolean> = {};
+        let hasError = false;
+        for (const q of questions) {
+            if (!answers[q.id] || answers[q.id].trim() === "") {
+                newErrors[q.id] = true;
+                hasError = true;
+            }
         }
 
         // 属性フィールドのバリデーション
@@ -99,6 +81,16 @@ export default function SurveyClientForm({
             if (respondentFields.hire_type && !respondentHireType) { alert("新卒/中途を選択してください"); return; }
         }
 
+        if (hasError) {
+            setErrors(newErrors);
+            // Scroll to first unanswered question
+            const firstErrorId = questions.find((q) => newErrors[q.id])?.id;
+            if (firstErrorId) {
+                document.getElementById(`question-${firstErrorId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+            return;
+        }
+
         if (isPreview) {
             alert("プレビューモードのため、実際のデータは送信されません。");
             return;
@@ -106,6 +98,11 @@ export default function SurveyClientForm({
 
         setIsSubmitting(true);
         try {
+            const responses = questions.reduce((acc, q) => ({
+                ...acc,
+                [q.id]: { type: q.type, value: answers[q.id] ?? "" },
+            }), {} as Record<string, { type: "score" | "text" | "choice"; value: string }>);
+
             const respondentData = isAnonymous ? undefined : {
                 name: respondentFields.name ? respondentName.trim() : undefined,
                 age: respondentFields.age ? parseInt(respondentAge, 10) : undefined,
@@ -113,11 +110,13 @@ export default function SurveyClientForm({
                 join_year: respondentFields.join_year ? parseInt(respondentJoinYear, 10) : undefined,
                 hire_type: respondentFields.hire_type ? respondentHireType : undefined,
             };
-            const result = await submitSurveyResponse(surveyId, values.responses, respondentData);
+
+            const result = await submitSurveyResponse(surveyId, responses, respondentData);
             if (result.error) {
                 alert("エラーが発生しました: " + result.error);
             } else {
                 setIsSubmitted(true);
+                window.scrollTo({ top: 0, behavior: "smooth" });
             }
         } catch (error) {
             console.error(error);
@@ -129,196 +128,210 @@ export default function SurveyClientForm({
 
     if (isSubmitted) {
         return (
-            <div className="min-h-screen bg-[#ede7f6] py-12 px-4 flex flex-col items-center justify-center">
-                <div className="w-full max-w-2xl">
-                    {/* ヘッダーバー */}
-                    <div className="h-2 bg-[#673ab7] rounded-t-xl" />
-                    <div className="bg-white rounded-b-xl shadow-sm border border-slate-200 p-8">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-10 h-10 bg-[#673ab7] rounded-full flex items-center justify-center shrink-0">
-                                <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                                </svg>
-                            </div>
-                            <h2 className="text-2xl font-normal text-slate-800">回答を記録しました</h2>
-                        </div>
-                        <p className="text-slate-600 ml-[52px]">
-                            ご回答いただきありがとうございました。
-                        </p>
+            <div className="min-h-screen bg-slate-50 py-12 px-4 flex flex-col items-center justify-center">
+                <div className="w-full max-w-2xl bg-white rounded-xl shadow-sm border border-slate-200 p-10 text-center">
+                    <div className="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg className="w-8 h-8 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                        </svg>
                     </div>
+                    <h2 className="text-xl font-bold text-slate-900 mb-2">回答を受け付けました</h2>
+                    <p className="text-slate-500 text-sm">ご回答いただきありがとうございました。</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-[#ede7f6] py-10 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-2xl mx-auto">
+        <div className="min-h-screen bg-slate-50 py-10 px-4">
+            <div className="max-w-2xl mx-auto space-y-4 pb-24">
                 {/* タイトルカード */}
-                <div className="mb-4 relative">
-                    <div className="h-2.5 bg-[#673ab7] rounded-t-xl" />
-                    <div className="bg-white rounded-b-xl shadow-sm border border-slate-200 px-8 py-6">
-                        {isPreview && (
-                            <div className="mb-3">
-                                <Badge className="bg-amber-500 hover:bg-amber-600 text-white">
-                                    プレビュー中
-                                </Badge>
-                            </div>
-                        )}
-                        <h1 className="text-3xl font-normal text-slate-800 mb-3">{title}</h1>
-                        {(description) && (
-                            <p className="text-slate-600 whitespace-pre-wrap text-sm">{description}</p>
-                        )}
-                    </div>
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 px-6 py-6">
+                    {isPreview && (
+                        <div className="mb-3">
+                            <Badge className="bg-amber-500 hover:bg-amber-600 text-white">プレビュー中</Badge>
+                        </div>
+                    )}
+                    <h1 className="text-2xl font-bold text-slate-900 mb-2">{title}</h1>
+                    {description && (
+                        <p className="text-slate-600 whitespace-pre-wrap text-sm">{description}</p>
+                    )}
                 </div>
 
-                <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                        {/* 属性フォーム（非匿名の場合のみ表示） */}
-                        {!isAnonymous && (
-                            <Card className="p-6 md:p-8 bg-white rounded-xl shadow-sm border-slate-200">
-                                <p className="text-base font-semibold text-slate-900 mb-4">あなたについて</p>
-                                <div className="space-y-4">
-                                    {respondentFields.name && (
-                                        <div className="space-y-1">
-                                            <label className="text-sm font-medium text-slate-700">名前</label>
-                                            <input
-                                                type="text"
-                                                value={respondentName}
-                                                onChange={(e) => setRespondentName(e.target.value)}
-                                                placeholder="山田 太郎"
-                                                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            />
-                                        </div>
-                                    )}
-                                    {respondentFields.age && (
-                                        <div className="space-y-1">
-                                            <label className="text-sm font-medium text-slate-700">年齢</label>
-                                            <input
-                                                type="number"
-                                                value={respondentAge}
-                                                onChange={(e) => setRespondentAge(e.target.value)}
-                                                placeholder="30"
-                                                min={15}
-                                                max={80}
-                                                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            />
-                                        </div>
-                                    )}
-                                    {respondentFields.gender && (
-                                        <div className="space-y-1">
-                                            <label className="text-sm font-medium text-slate-700">性別</label>
-                                            <select
-                                                value={respondentGender}
-                                                onChange={(e) => setRespondentGender(e.target.value)}
-                                                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                                            >
-                                                <option value="">選択してください</option>
-                                                <option value="male">男性</option>
-                                                <option value="female">女性</option>
-                                                <option value="other">その他</option>
-                                                <option value="prefer_not_to_say">回答しない</option>
-                                            </select>
-                                        </div>
-                                    )}
-                                    {respondentFields.join_year && (
-                                        <div className="space-y-1">
-                                            <label className="text-sm font-medium text-slate-700">入社年度</label>
-                                            <select
-                                                value={respondentJoinYear}
-                                                onChange={(e) => setRespondentJoinYear(e.target.value)}
-                                                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                                            >
-                                                <option value="">選択してください</option>
-                                                {JOIN_YEAR_OPTIONS.map((year) => (
-                                                    <option key={year} value={year}>{year}年</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    )}
-                                    {respondentFields.hire_type && (
-                                        <div className="space-y-1">
-                                            <label className="text-sm font-medium text-slate-700">入社区分</label>
-                                            <select
-                                                value={respondentHireType}
-                                                onChange={(e) => setRespondentHireType(e.target.value)}
-                                                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                                            >
-                                                <option value="">選択してください</option>
-                                                <option value="new_grad">新卒</option>
-                                                <option value="mid_career">中途</option>
-                                            </select>
-                                        </div>
-                                    )}
-                                </div>
-                            </Card>
-                        )}
-
-                        {questions.map((question, index) => (
-                            <FormField
-                                key={question.id}
-                                control={form.control}
-                                name={`responses.${question.id}`}
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <Card className="p-6 bg-white rounded-xl shadow-sm border-slate-200">
-                                            <p className="text-base text-slate-800 mb-4">
-                                                <span className="text-slate-400 text-sm mr-2">{index + 1}.</span>
-                                                {question.text}
-                                            </p>
-
-                                            <FormControl>
-                                                {question.type === "score" ? (
-                                                    <RadioGroup
-                                                        onValueChange={(val) => field.onChange({ type: "score", value: val })}
-                                                        defaultValue={field.value?.value || ""}
-                                                        value={field.value?.value || ""}
-                                                        className="space-y-2"
-                                                    >
-                                                        {ratingOptions.map((option) => (
-                                                            <div key={option.value} className="flex items-center gap-3">
-                                                                <RadioGroupItem
-                                                                    value={option.value}
-                                                                    id={`${question.id}-${option.value}`}
-                                                                    className="border-slate-400 text-[#673ab7] focus-visible:ring-[#673ab7] data-[state=checked]:bg-[#673ab7] data-[state=checked]:border-[#673ab7]"
-                                                                />
-                                                                <label
-                                                                    htmlFor={`${question.id}-${option.value}`}
-                                                                    className="text-sm text-slate-700 cursor-pointer select-none"
-                                                                >
-                                                                    {option.value}　{option.label}
-                                                                </label>
-                                                            </div>
-                                                        ))}
-                                                    </RadioGroup>
-                                                ) : (
-                                                    <Textarea
-                                                        placeholder="回答を入力してください"
-                                                        className="min-h-[120px] resize-y bg-white text-base border-0 border-b-2 border-slate-300 rounded-none focus-visible:ring-0 focus-visible:border-[#673ab7] shadow-none px-0"
-                                                        value={field.value?.value || ""}
-                                                        onChange={(e) => field.onChange({ type: "text", value: e.target.value })}
-                                                    />
-                                                )}
-                                            </FormControl>
-                                            <FormMessage className="mt-4" />
-                                        </Card>
-                                    </FormItem>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    {/* 属性フォーム（非匿名の場合のみ表示） */}
+                    {!isAnonymous && (
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 px-6 py-6">
+                            <p className="text-base font-semibold text-slate-900 mb-4">あなたについて</p>
+                            <div className="space-y-4">
+                                {respondentFields.name && (
+                                    <div className="space-y-1">
+                                        <label className="text-sm font-medium text-slate-700">名前</label>
+                                        <input
+                                            type="text"
+                                            value={respondentName}
+                                            onChange={(e) => setRespondentName(e.target.value)}
+                                            placeholder="山田 太郎"
+                                            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        />
+                                    </div>
                                 )}
-                            />
-                        ))}
+                                {respondentFields.age && (
+                                    <div className="space-y-1">
+                                        <label className="text-sm font-medium text-slate-700">年齢</label>
+                                        <input
+                                            type="number"
+                                            value={respondentAge}
+                                            onChange={(e) => setRespondentAge(e.target.value)}
+                                            placeholder="30"
+                                            min={15}
+                                            max={80}
+                                            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        />
+                                    </div>
+                                )}
+                                {respondentFields.gender && (
+                                    <div className="space-y-1">
+                                        <label className="text-sm font-medium text-slate-700">性別</label>
+                                        <select
+                                            value={respondentGender}
+                                            onChange={(e) => setRespondentGender(e.target.value)}
+                                            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                                        >
+                                            <option value="">選択してください</option>
+                                            <option value="male">男性</option>
+                                            <option value="female">女性</option>
+                                            <option value="other">その他</option>
+                                            <option value="prefer_not_to_say">回答しない</option>
+                                        </select>
+                                    </div>
+                                )}
+                                {respondentFields.join_year && (
+                                    <div className="space-y-1">
+                                        <label className="text-sm font-medium text-slate-700">入社年度</label>
+                                        <select
+                                            value={respondentJoinYear}
+                                            onChange={(e) => setRespondentJoinYear(e.target.value)}
+                                            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                                        >
+                                            <option value="">選択してください</option>
+                                            {JOIN_YEAR_OPTIONS.map((year) => (
+                                                <option key={year} value={year}>{year}年</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+                                {respondentFields.hire_type && (
+                                    <div className="space-y-1">
+                                        <label className="text-sm font-medium text-slate-700">入社区分</label>
+                                        <select
+                                            value={respondentHireType}
+                                            onChange={(e) => setRespondentHireType(e.target.value)}
+                                            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                                        >
+                                            <option value="">選択してください</option>
+                                            <option value="new_grad">新卒</option>
+                                            <option value="mid_career">中途</option>
+                                        </select>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
 
-                        <div className="flex justify-between items-center pt-2">
+                    {questions.map((question, index) => (
+                        <div
+                            key={question.id}
+                            id={`question-${question.id}`}
+                            className={`bg-white rounded-xl shadow-sm border px-6 py-6 ${errors[question.id] ? "border-red-400" : "border-slate-200"}`}
+                        >
+                            <p className="text-base font-medium text-slate-900 mb-4">
+                                <span className="text-indigo-500 text-sm font-semibold mr-2">{index + 1}.</span>
+                                {question.text}
+                                <span className="text-red-500 ml-1 text-sm">*</span>
+                            </p>
+
+                            {question.type === "score" && (
+                                <div className="space-y-2">
+                                    {ratingOptions.map((option) => (
+                                        <label
+                                            key={option.value}
+                                            className={`flex items-center gap-3 px-4 py-3 rounded-lg border cursor-pointer transition-colors ${
+                                                answers[question.id] === option.value
+                                                    ? "border-indigo-400 bg-indigo-50"
+                                                    : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+                                            }`}
+                                        >
+                                            <input
+                                                type="radio"
+                                                name={`question-${question.id}`}
+                                                value={option.value}
+                                                checked={answers[question.id] === option.value}
+                                                onChange={() => setAnswer(question.id, option.value)}
+                                                className="w-4 h-4 text-indigo-600 border-slate-300 focus:ring-indigo-500"
+                                            />
+                                            <span className="text-sm text-slate-700">
+                                                {option.value}　{option.label}
+                                            </span>
+                                        </label>
+                                    ))}
+                                </div>
+                            )}
+
+                            {question.type === "choice" && (
+                                <div className="space-y-2">
+                                    {(question.options ?? []).filter(Boolean).map((opt, i) => (
+                                        <label
+                                            key={i}
+                                            className={`flex items-center gap-3 px-4 py-3 rounded-lg border cursor-pointer transition-colors ${
+                                                answers[question.id] === opt
+                                                    ? "border-indigo-400 bg-indigo-50"
+                                                    : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+                                            }`}
+                                        >
+                                            <input
+                                                type="radio"
+                                                name={`question-${question.id}`}
+                                                value={opt}
+                                                checked={answers[question.id] === opt}
+                                                onChange={() => setAnswer(question.id, opt)}
+                                                className="w-4 h-4 text-indigo-600 border-slate-300 focus:ring-indigo-500"
+                                            />
+                                            <span className="text-sm text-slate-700">{opt}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            )}
+
+                            {question.type === "text" && (
+                                <Textarea
+                                    placeholder="回答を入力してください"
+                                    className="min-h-[100px] resize-y bg-white text-base border-slate-300 focus-visible:ring-indigo-500"
+                                    value={answers[question.id] ?? ""}
+                                    onChange={(e) => setAnswer(question.id, e.target.value)}
+                                />
+                            )}
+
+                            {errors[question.id] && (
+                                <p className="text-red-500 text-xs mt-2">この設問への回答は必須です</p>
+                            )}
+                        </div>
+                    ))}
+
+                    {/* 送信ボタン: 固定フッター */}
+                    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 py-3 z-10">
+                        <div className="max-w-2xl mx-auto">
                             <Button
                                 type="submit"
                                 size="lg"
                                 disabled={isSubmitting}
-                                className="px-8 bg-[#673ab7] hover:bg-[#5e35b1] text-white rounded font-medium"
+                                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
                             >
-                                {isPreview ? "プレビュー送信をテスト" : (isSubmitting ? "送信中..." : "送信")}
+                                {isPreview ? "プレビュー送信をテスト" : (isSubmitting ? "送信中..." : "送信する")}
                             </Button>
                         </div>
-                    </form>
-                </Form>
+                    </div>
+                </form>
             </div>
         </div>
     );
