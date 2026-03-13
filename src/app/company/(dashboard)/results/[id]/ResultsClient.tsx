@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Users, TrendingUp, Calendar, BarChart2, List } from "lucide-react";
+import { Users, TrendingUp, Calendar, BarChart2, List, PieChart } from "lucide-react";
 
 // SVG Donut Chart
 function DonutChart({ counts }: { counts: number[] }) {
@@ -84,10 +84,46 @@ type Props = {
     overallAvg: number;
 };
 
+function AttrBar({ label, count, total }: { label: string; count: number; total: number }) {
+    const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+    return (
+        <div className="flex items-center gap-3">
+            <span className="text-sm text-slate-600 w-28 shrink-0 truncate">{label}</span>
+            <div className="flex-1 h-5 bg-slate-100 rounded overflow-hidden">
+                <div className="h-full bg-indigo-400 rounded" style={{ width: `${pct}%` }} />
+            </div>
+            <span className="text-xs text-slate-500 w-20 text-right shrink-0">{count}件 ({pct}%)</span>
+        </div>
+    );
+}
+
 export default function ResultsClient({ survey, questionStats, totalResponses, overallAvg }: Props) {
-    const [view, setView] = useState<"aggregate" | "list">("aggregate");
+    const [view, setView] = useState<"aggregate" | "list" | "attributes">("aggregate");
     const responses = survey.responses || [];
     const questions = survey.questions || [];
+
+    // 属性集計の計算
+    const attrResponses = responses.filter((r: any) =>
+        r.respondent_department || r.respondent_gender || r.respondent_hire_type || r.respondent_join_year || r.respondent_age
+    );
+    const hasAttributes = attrResponses.length > 0;
+
+    function countBy(field: string, labelMap?: Record<string, string>) {
+        const counts: Record<string, number> = {};
+        for (const r of responses) {
+            const val = r[field];
+            if (!val) continue;
+            const label = labelMap ? (labelMap[val] ?? val) : String(val);
+            counts[label] = (counts[label] ?? 0) + 1;
+        }
+        return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    }
+
+    const deptCounts = countBy("respondent_department");
+    const genderCounts = countBy("respondent_gender", GENDER_LABELS);
+    const hireTypeCounts = countBy("respondent_hire_type", HIRE_TYPE_LABELS);
+    const joinYearCounts = countBy("respondent_join_year");
+    const ageCounts = countBy("respondent_age");
 
     return (
         <div className="space-y-6">
@@ -131,7 +167,7 @@ export default function ResultsClient({ survey, questionStats, totalResponses, o
             </div>
 
             {/* View Toggle */}
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
                 <button
                     onClick={() => setView("aggregate")}
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -142,6 +178,17 @@ export default function ResultsClient({ survey, questionStats, totalResponses, o
                 >
                     <BarChart2 className="w-4 h-4" />
                     集計表示
+                </button>
+                <button
+                    onClick={() => setView("attributes")}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        view === "attributes"
+                            ? "bg-indigo-600 text-white"
+                            : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                    }`}
+                >
+                    <PieChart className="w-4 h-4" />
+                    属性集計
                 </button>
                 <button
                     onClick={() => setView("list")}
@@ -222,6 +269,70 @@ export default function ResultsClient({ survey, questionStats, totalResponses, o
                             </div>
                         ))}
                     </div>
+                </div>
+            )}
+
+            {/* Attributes Aggregate View */}
+            {view === "attributes" && (
+                <div className="space-y-4">
+                    {!hasAttributes ? (
+                        <div className="bg-white rounded-xl border border-slate-200 p-10 text-center text-slate-500 text-sm">
+                            属性情報が収集されていません（匿名サーベイまたは属性収集が無効）
+                        </div>
+                    ) : (
+                        <>
+                            {deptCounts.length > 0 && (
+                                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+                                    <h3 className="font-semibold text-slate-900 mb-4">部署</h3>
+                                    <div className="space-y-2">
+                                        {deptCounts.map(([label, count]) => (
+                                            <AttrBar key={label} label={label} count={count} total={totalResponses} />
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            {genderCounts.length > 0 && (
+                                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+                                    <h3 className="font-semibold text-slate-900 mb-4">性別</h3>
+                                    <div className="space-y-2">
+                                        {genderCounts.map(([label, count]) => (
+                                            <AttrBar key={label} label={label} count={count} total={totalResponses} />
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            {hireTypeCounts.length > 0 && (
+                                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+                                    <h3 className="font-semibold text-slate-900 mb-4">入社区分</h3>
+                                    <div className="space-y-2">
+                                        {hireTypeCounts.map(([label, count]) => (
+                                            <AttrBar key={label} label={label} count={count} total={totalResponses} />
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            {joinYearCounts.length > 0 && (
+                                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+                                    <h3 className="font-semibold text-slate-900 mb-4">入社年度</h3>
+                                    <div className="space-y-2">
+                                        {joinYearCounts.map(([label, count]) => (
+                                            <AttrBar key={label} label={`${label}年`} count={count} total={totalResponses} />
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            {ageCounts.length > 0 && (
+                                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+                                    <h3 className="font-semibold text-slate-900 mb-4">年齢</h3>
+                                    <div className="space-y-2">
+                                        {ageCounts.map(([label, count]) => (
+                                            <AttrBar key={label} label={`${label}歳`} count={count} total={totalResponses} />
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                    )}
                 </div>
             )}
 

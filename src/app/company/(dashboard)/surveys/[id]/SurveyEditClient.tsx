@@ -171,7 +171,11 @@ export default function SurveyEditClient({ survey, departmentOptions = [] }: { s
             alert("エラー: " + result.error);
         } else {
             if (newStatus) setStatus(newStatus);
-            alert("保存しました");
+            if (result.linksDeactivated) {
+                alert("保存しました。\n\n⚠️ 設問の変更により、既存の回答リンクがすべて無効化されました。\n「回答リンク管理」から新しいリンクを発行してください。");
+            } else {
+                alert("保存しました");
+            }
             router.refresh();
         }
         setIsSubmitting(false);
