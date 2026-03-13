@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
     updateCompanySurvey,
+    updateCompanySettings,
     issueSurveyLink,
     deactivateSurveyLink,
 } from "@/app/actions/company-survey";
@@ -16,7 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import {
     ArrowLeft, Plus, Trash2, Save, Link2, Copy, CheckCircle2,
-    ExternalLink, XCircle, Loader2, Settings
+    ExternalLink, XCircle, Loader2
 } from "lucide-react";
 
 type Question = { id?: string; text: string; type: "score" | "text" | "choice"; options?: string[] };
@@ -45,6 +46,30 @@ export default function SurveyEditClient({ survey, departmentOptions = [] }: { s
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isIssuingLink, setIsIssuingLink] = useState(false);
     const [copiedToken, setCopiedToken] = useState<string | null>(null);
+
+    // 部署リスト（インライン編集用）
+    const [deptOptions, setDeptOptions] = useState<string[]>(
+        departmentOptions.length > 0 ? departmentOptions : []
+    );
+    const [isSavingDept, setIsSavingDept] = useState(false);
+
+    const addDeptOption = () => setDeptOptions([...deptOptions, ""]);
+    const updateDeptOption = (i: number, val: string) =>
+        setDeptOptions(deptOptions.map((o, idx) => (idx === i ? val : o)));
+    const removeDeptOption = (i: number) =>
+        setDeptOptions(deptOptions.length <= 1 ? [""] : deptOptions.filter((_, idx) => idx !== i));
+    const handleSaveDept = async () => {
+        const nonEmpty = deptOptions.map((o) => o.trim()).filter(Boolean);
+        setIsSavingDept(true);
+        const result = await updateCompanySettings({ department_options: nonEmpty });
+        if (result.error) {
+            alert("部署リストの保存に失敗しました: " + result.error);
+        } else {
+            setDeptOptions(nonEmpty.length > 0 ? nonEmpty : []);
+            alert("部署リストを保存しました");
+        }
+        setIsSavingDept(false);
+    };
 
     const [title, setTitle] = useState(survey.title);
     const [description, setDescription] = useState(survey.description || "");
@@ -124,7 +149,7 @@ export default function SurveyEditClient({ survey, departmentOptions = [] }: { s
             ? { name: false, age: false, gender: false, join_year: false, hire_type: false, department: false }
             : {
                 ...respondentFields,
-                ...(respondentFields.department ? { department_options: departmentOptions } : {}),
+                ...(respondentFields.department ? { department_options: deptOptions.filter(Boolean) } : {}),
               };
         const result = await updateCompanySurvey(survey.id, {
             title,
@@ -303,25 +328,47 @@ export default function SurveyEditClient({ survey, departmentOptions = [] }: { s
                                                 </span>
                                             </label>
                                         ))}
+
+                                        {/* 部署インライン編集 */}
                                         {respondentFields.department && (
                                             <div className="mt-3 rounded-lg border border-indigo-100 bg-indigo-50 p-3 space-y-2">
                                                 <p className="text-xs font-medium text-indigo-700">部署の選択肢</p>
-                                                {departmentOptions.length > 0 ? (
-                                                    <ul className="space-y-0.5">
-                                                        {departmentOptions.map((opt) => (
-                                                            <li key={opt} className="text-xs text-slate-600">・{opt}</li>
-                                                        ))}
-                                                    </ul>
-                                                ) : (
-                                                    <p className="text-xs text-amber-600">部署が未設定です。企業設定で追加してください。</p>
-                                                )}
-                                                <a
-                                                    href="/company/settings"
-                                                    className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium"
-                                                >
-                                                    <Settings className="w-3 h-3" />
-                                                    部署リストを編集
-                                                </a>
+                                                {(deptOptions.length > 0 ? deptOptions : [""]).map((opt, i) => (
+                                                    <div key={i} className="flex items-center gap-1.5">
+                                                        <span className="text-xs text-slate-400 w-4 text-right shrink-0">{i + 1}.</span>
+                                                        <Input
+                                                            value={opt}
+                                                            onChange={(e) => updateDeptOption(i, e.target.value)}
+                                                            placeholder="例: 営業部"
+                                                            className="h-7 text-xs"
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => removeDeptOption(i)}
+                                                            className="text-slate-400 hover:text-red-500 shrink-0"
+                                                        >
+                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                                <div className="flex items-center justify-between pt-1">
+                                                    <button
+                                                        type="button"
+                                                        onClick={addDeptOption}
+                                                        className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800"
+                                                    >
+                                                        <Plus className="h-3 w-3" /> 部署を追加
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleSaveDept}
+                                                        disabled={isSavingDept}
+                                                        className="flex items-center gap-1 text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-2 py-1 rounded disabled:opacity-50"
+                                                    >
+                                                        {isSavingDept ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                                                        保存
+                                                    </button>
+                                                </div>
                                             </div>
                                         )}
                                     </div>
