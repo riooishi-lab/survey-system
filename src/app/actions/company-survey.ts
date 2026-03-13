@@ -437,12 +437,21 @@ export async function updateCompanySurvey(
             return false;
         });
 
+    let linksDeactivated = false;
     if (questionsChanged) {
-        await supabase
+        const { data: activeLinks } = await supabase
             .from("survey_links")
-            .update({ is_active: false })
+            .select("id")
             .eq("survey_id", surveyId)
             .eq("is_active", true);
+        if (activeLinks && activeLinks.length > 0) {
+            await supabase
+                .from("survey_links")
+                .update({ is_active: false })
+                .eq("survey_id", surveyId)
+                .eq("is_active", true);
+            linksDeactivated = true;
+        }
     }
 
     const { error: surveyError } = await supabase
@@ -502,7 +511,7 @@ export async function updateCompanySurvey(
     }
 
     revalidatePath("/company");
-    return { success: true };
+    return { success: true, linksDeactivated };
 }
 
 export async function issueSurveyLink(surveyId: string, expiresAt?: string) {

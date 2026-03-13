@@ -16,7 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import {
     ArrowLeft, Plus, Trash2, Save, Link2, Copy, CheckCircle2,
-    ExternalLink, XCircle, Loader2
+    ExternalLink, XCircle, Loader2, Settings
 } from "lucide-react";
 
 type Question = { id?: string; text: string; type: "score" | "text" | "choice"; options?: string[] };
@@ -146,7 +146,11 @@ export default function SurveyEditClient({ survey, departmentOptions = [] }: { s
             alert("エラー: " + result.error);
         } else {
             if (newStatus) setStatus(newStatus);
-            alert("保存しました");
+            if (result.linksDeactivated) {
+                alert("保存しました。\n\n⚠️ 設問の変更により、既存の回答リンクがすべて無効化されました。\n「回答リンク管理」から新しいリンクを発行してください。");
+            } else {
+                alert("保存しました");
+            }
             router.refresh();
         }
         setIsSubmitting(false);
@@ -299,6 +303,27 @@ export default function SurveyEditClient({ survey, departmentOptions = [] }: { s
                                                 </span>
                                             </label>
                                         ))}
+                                        {respondentFields.department && (
+                                            <div className="mt-3 rounded-lg border border-indigo-100 bg-indigo-50 p-3 space-y-2">
+                                                <p className="text-xs font-medium text-indigo-700">部署の選択肢</p>
+                                                {departmentOptions.length > 0 ? (
+                                                    <ul className="space-y-0.5">
+                                                        {departmentOptions.map((opt) => (
+                                                            <li key={opt} className="text-xs text-slate-600">・{opt}</li>
+                                                        ))}
+                                                    </ul>
+                                                ) : (
+                                                    <p className="text-xs text-amber-600">部署が未設定です。企業設定で追加してください。</p>
+                                                )}
+                                                <a
+                                                    href="/company/settings"
+                                                    className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                                                >
+                                                    <Settings className="w-3 h-3" />
+                                                    部署リストを編集
+                                                </a>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
