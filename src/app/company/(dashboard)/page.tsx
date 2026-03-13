@@ -3,7 +3,7 @@ import { requireCompanyAuth } from "@/lib/auth";
 import { getCompanySurveys, getCompanyInfo } from "@/app/actions/company-survey";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { PlusCircle, FileText, Users, Link2, BarChart2, Edit, ExternalLink } from "lucide-react";
+import { PlusCircle, FileText, Users, Link2, BarChart2 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -83,9 +83,9 @@ export default async function CompanyDashboard() {
                             return (
                                 <div key={survey.id} className="p-5 hover:bg-slate-50 transition-colors">
                                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                        <div className="flex-1 min-w-0">
+                                        <Link href={`/company/surveys/${survey.id}`} className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2 flex-wrap">
-                                                <h4 className="font-medium text-slate-900 truncate">{survey.title}</h4>
+                                                <h4 className="font-medium text-slate-900 truncate hover:text-indigo-600 transition-colors">{survey.title}</h4>
                                                 {survey.status === "active" && (
                                                     <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-xs">公開中</Badge>
                                                 )}
@@ -109,13 +109,13 @@ export default async function CompanyDashboard() {
                                                     <span>期限: {new Date(survey.deadline).toLocaleDateString("ja-JP")}</span>
                                                 )}
                                             </div>
-                                        </div>
+                                        </Link>
 
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2 shrink-0">
                                             <Link href={`/company/surveys/${survey.id}`}>
                                                 <Button variant="outline" size="sm" className="gap-1 text-slate-600 shadow-none">
-                                                    <Edit className="w-3.5 h-3.5" />
-                                                    編集・リンク
+                                                    <Link2 className="w-3.5 h-3.5" />
+                                                    リンク
                                                 </Button>
                                             </Link>
                                             <Link href={`/company/results/${survey.id}`}>

@@ -181,8 +181,48 @@ export default function SurveyEditClient({ survey, departmentOptions = [] }: { s
         setIsSubmitting(false);
     };
 
-    const handleIssueLink = async () => {
+    const handleSaveAndIssueLink = async () => {
+        if (!title.trim()) { alert("タイトルを入力してください"); return; }
+        const validQuestions = questions.filter((q) => q.text.trim());
+        if (validQuestions.length === 0) { alert("少なくとも1つの設問を入力してください"); return; }
+        for (const q of validQuestions) {
+            if (q.type === "choice" && (q.options ?? []).filter(Boolean).length < 2) {
+                alert("選択式の設問には、2つ以上の選択肢を入力してください");
+                return;
+            }
+        }
+
         setIsIssuingLink(true);
+
+        // 先に保存
+        const fields = isAnonymous
+            ? { name: false, age: false, gender: false, join_year: false, hire_type: false, department: false }
+            : {
+                ...respondentFields,
+                ...(respondentFields.department ? { department_options: deptOptions.filter(Boolean) } : {}),
+              };
+        const saveResult = await updateCompanySurvey(survey.id, {
+            title, description, deadline, status,
+            is_anonymous: isAnonymous,
+            respondent_fields: fields,
+            questions: validQuestions.map((q, i) => ({
+                id: q.id && q.id.length > 13 ? q.id : undefined,
+                text: q.text, type: q.type, order_index: i, options: q.options,
+            })),
+        });
+
+        if (saveResult.error) {
+            alert("保存に失敗しました: " + saveResult.error);
+            setIsIssuingLink(false);
+            return;
+        }
+
+        if (saveResult.linksDeactivated) {
+            alert("設問の変更により、既存の回答リンクがすべて無効化されました。新しいリンクを発行します。");
+            setLinks((prev) => prev.map((l) => ({ ...l, is_active: false })));
+        }
+
+        // リンクを発行
         const result = await issueSurveyLink(survey.id, deadline || undefined);
         if (result.error) {
             alert("エラー: " + result.error);
@@ -194,7 +234,8 @@ export default function SurveyEditClient({ survey, departmentOptions = [] }: { s
                 expires_at: deadline || null,
                 created_at: new Date().toISOString(),
             };
-            setLinks([newLink, ...links]);
+            setLinks((prev) => [newLink, ...prev.filter((l) => l.is_active || saveResult.linksDeactivated ? !saveResult.linksDeactivated || l.id !== newLink.id : true)]);
+            router.refresh();
         }
         setIsIssuingLink(false);
     };
@@ -393,12 +434,12 @@ export default function SurveyEditClient({ survey, departmentOptions = [] }: { s
                                 </p>
                             )}
                             <Button
-                                onClick={handleIssueLink}
+                                onClick={handleSaveAndIssueLink}
                                 disabled={isIssuingLink || status === "closed"}
                                 className="w-full bg-indigo-600 hover:bg-indigo-700 text-white gap-2"
                             >
                                 {isIssuingLink ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
-                                リンクを発行する
+                                保存してリンクを発行する
                             </Button>
 
                             {status === "closed" && (
