@@ -1,16 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { createCompanySurvey } from "@/app/actions/company-survey";
+import { createCompanySurvey, getCompanyDepartmentOptions } from "@/app/actions/company-survey";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Plus, Trash2, Save, Loader2 } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Save } from "lucide-react";
 
 type RespondentFields = {
     name: boolean;
@@ -18,6 +18,7 @@ type RespondentFields = {
     gender: boolean;
     join_year: boolean;
     hire_type: boolean;
+    department: boolean;
 };
 
 const RESPONDENT_FIELD_LABELS: Record<keyof RespondentFields, string> = {
@@ -26,6 +27,7 @@ const RESPONDENT_FIELD_LABELS: Record<keyof RespondentFields, string> = {
     gender: "性別",
     join_year: "入社年度",
     hire_type: "新卒 / 中途",
+    department: "部署",
 };
 
 const DEFAULT_QUESTIONS = [
@@ -45,13 +47,19 @@ export default function NewCompanySurveyPage() {
     const [description, setDescription] = useState("");
     const [deadline, setDeadline] = useState("");
     const [isAnonymous, setIsAnonymous] = useState(false);
+    const [departmentOptions, setDepartmentOptions] = useState<string[]>([]);
     const [respondentFields, setRespondentFields] = useState<RespondentFields>({
         name: false,
         age: false,
         gender: false,
         join_year: false,
         hire_type: false,
+        department: false,
     });
+
+    useEffect(() => {
+        getCompanyDepartmentOptions().then(setDepartmentOptions).catch(() => {});
+    }, []);
     const [questions, setQuestions] = useState<Question[]>(
         DEFAULT_QUESTIONS.map((text, i) => ({ id: String(i + 1), text, type: "score" }))
     );
@@ -112,13 +120,20 @@ export default function NewCompanySurveyPage() {
         }
 
         setIsSubmitting(true);
+        const fields = isAnonymous
+            ? { name: false, age: false, gender: false, join_year: false, hire_type: false, department: false }
+            : {
+                ...respondentFields,
+                // 部署が有効な場合、現在の部署リストをスナップショットとして埋め込む
+                ...(respondentFields.department ? { department_options: departmentOptions } : {}),
+              };
         const result = await createCompanySurvey({
             title,
             description,
             deadline,
             status,
             is_anonymous: isAnonymous,
-            respondent_fields: isAnonymous ? { name: false, age: false, gender: false, join_year: false, hire_type: false } : respondentFields,
+            respondent_fields: fields,
             questions: validQuestions.map((q, i) => ({ text: q.text, type: q.type, order_index: i, options: q.options })),
         });
 
