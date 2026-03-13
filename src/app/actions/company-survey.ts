@@ -339,7 +339,7 @@ export async function createCompanySurvey(surveyData: {
     deadline: string;
     status: "draft" | "active" | "closed";
     is_anonymous?: boolean;
-    respondent_fields?: Record<string, boolean>;
+    respondent_fields?: Record<string, boolean | string[]>;
     questions: { text: string; type: "score" | "text" | "choice"; order_index: number; options?: string[] }[];
 }) {
     const companyId = await requireCompanyAuth();
@@ -354,7 +354,7 @@ export async function createCompanySurvey(surveyData: {
             status: surveyData.status,
             company_id: companyId,
             is_anonymous: surveyData.is_anonymous ?? false,
-            respondent_fields: surveyData.respondent_fields ?? { name: false, age: false, gender: false, join_year: false, hire_type: false },
+            respondent_fields: surveyData.respondent_fields ?? { name: false, age: false, gender: false, join_year: false, hire_type: false, department: false },
         })
         .select()
         .single();
@@ -373,12 +373,15 @@ export async function createCompanySurvey(surveyData: {
                     text: q.text,
                     type: q.type,
                     order_index: q.order_index,
-                    options: q.type === "choice" ? (q.options ?? []) : null,
+                    // choice 以外は options を含めない（DB に options カラムがない環境でも動作させるため）
+                    ...(q.type === "choice" ? { options: q.options ?? [] } : {}),
                 }))
             );
 
         if (questionsError) {
             console.error("Questions creation error:", questionsError);
+            // 孤立したサーベイを削除してクリーンな状態に戻す
+            await supabase.from("surveys").delete().eq("id", survey.id);
             return { error: "設問の作成に失敗しました" };
         }
     }
@@ -395,7 +398,7 @@ export async function updateCompanySurvey(
         deadline: string;
         status: "draft" | "active" | "closed";
         is_anonymous?: boolean;
-        respondent_fields?: Record<string, boolean>;
+        respondent_fields?: Record<string, boolean | string[]>;
         questions: { id?: string; text: string; type: "score" | "text" | "choice"; order_index: number; options?: string[] }[];
     }
 ) {
@@ -450,7 +453,7 @@ export async function updateCompanySurvey(
             deadline: surveyData.deadline || null,
             status: surveyData.status,
             is_anonymous: surveyData.is_anonymous ?? false,
-            respondent_fields: surveyData.respondent_fields ?? { name: false, age: false, gender: false, join_year: false, hire_type: false },
+            respondent_fields: surveyData.respondent_fields ?? { name: false, age: false, gender: false, join_year: false, hire_type: false, department: false },
         })
         .eq("id", surveyId);
 
@@ -475,7 +478,13 @@ export async function updateCompanySurvey(
     for (const q of toUpdate) {
         await supabase
             .from("questions")
-            .update({ text: q.text, type: q.type, order_index: q.order_index, options: q.type === "choice" ? (q.options ?? []) : null })
+            .update({
+                text: q.text,
+                type: q.type,
+                order_index: q.order_index,
+                // choice 以外は options を含めない
+                ...(q.type === "choice" ? { options: q.options ?? [] } : {}),
+            })
             .eq("id", q.id!);
     }
 
@@ -486,7 +495,8 @@ export async function updateCompanySurvey(
                 text: q.text,
                 type: q.type,
                 order_index: q.order_index,
-                options: q.type === "choice" ? (q.options ?? []) : null,
+                // choice 以外は options を含めない
+                ...(q.type === "choice" ? { options: q.options ?? [] } : {}),
             }))
         );
     }
@@ -551,6 +561,35 @@ export async function deactivateSurveyLink(linkId: string) {
     return { success: true };
 }
 
+export async function getCompanyDepartmentOptions(): Promise<string[]> {
+    const companyId = await requireCompanyAuth();
+    const supabase = getSupabase();
+    const { data } = await supabase
+        .from("companies")
+        .select("department_options")
+        .eq("id", companyId)
+        .single();
+    return (data?.department_options as string[]) ?? [];
+}
+
+export async function updateCompanySettings(settings: { department_options: string[] }) {
+    const companyId = await requireCompanyAuth();
+    const supabase = getSupabase();
+
+    const { error } = await supabase
+        .from("companies")
+        .update({ department_options: settings.department_options })
+        .eq("id", companyId);
+
+    if (error) {
+        console.error("Company settings update error:", error);
+        return { error: "設定の保存に失敗しました" };
+    }
+
+    revalidatePath("/company");
+    return { success: true };
+}
+
 export async function getCompanySurveyResults(surveyId: string) {
     const companyId = await requireCompanyAuth();
     const supabase = getSupabase();
@@ -568,6 +607,7 @@ export async function getCompanySurveyResults(surveyId: string) {
                 respondent_gender,
                 respondent_join_year,
                 respondent_hire_type,
+                respondent_department,
                 answers (*)
             )
         `)

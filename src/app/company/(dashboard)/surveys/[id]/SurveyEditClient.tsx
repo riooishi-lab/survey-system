@@ -28,6 +28,7 @@ type RespondentFields = {
     gender: boolean;
     join_year: boolean;
     hire_type: boolean;
+    department: boolean;
 };
 
 const RESPONDENT_FIELD_LABELS: Record<keyof RespondentFields, string> = {
@@ -36,9 +37,10 @@ const RESPONDENT_FIELD_LABELS: Record<keyof RespondentFields, string> = {
     gender: "性別",
     join_year: "入社年度",
     hire_type: "新卒 / 中途",
+    department: "部署",
 };
 
-export default function SurveyEditClient({ survey }: { survey: any }) {
+export default function SurveyEditClient({ survey, departmentOptions = [] }: { survey: any; departmentOptions?: string[] }) {
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isIssuingLink, setIsIssuingLink] = useState(false);
@@ -59,6 +61,7 @@ export default function SurveyEditClient({ survey }: { survey: any }) {
         gender: survey.respondent_fields?.gender ?? false,
         join_year: survey.respondent_fields?.join_year ?? false,
         hire_type: survey.respondent_fields?.hire_type ?? false,
+        department: survey.respondent_fields?.department ?? false,
     });
     const [questions, setQuestions] = useState<Question[]>(
         (survey.questions || []).map((q: any) => ({ id: q.id, text: q.text, type: q.type, options: q.options ?? undefined }))
@@ -117,13 +120,19 @@ export default function SurveyEditClient({ survey }: { survey: any }) {
         }
 
         setIsSubmitting(true);
+        const fields = isAnonymous
+            ? { name: false, age: false, gender: false, join_year: false, hire_type: false, department: false }
+            : {
+                ...respondentFields,
+                ...(respondentFields.department ? { department_options: departmentOptions } : {}),
+              };
         const result = await updateCompanySurvey(survey.id, {
             title,
             description,
             deadline,
             status: newStatus || status,
             is_anonymous: isAnonymous,
-            respondent_fields: isAnonymous ? { name: false, age: false, gender: false, join_year: false, hire_type: false } : respondentFields,
+            respondent_fields: fields,
             questions: validQuestions.map((q, i) => ({
                 id: q.id && q.id.length > 13 ? q.id : undefined,
                 text: q.text,

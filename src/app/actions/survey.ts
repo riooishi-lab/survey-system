@@ -170,6 +170,7 @@ export async function submitSurveyResponse(
         gender?: string;
         join_year?: number;
         hire_type?: string;
+        department?: string;
     }
 ) {
     const supabase = getSupabase();
@@ -183,6 +184,7 @@ export async function submitSurveyResponse(
             respondent_gender: respondentData?.gender ?? null,
             respondent_join_year: respondentData?.join_year ?? null,
             respondent_hire_type: respondentData?.hire_type ?? null,
+            respondent_department: respondentData?.department ?? null,
         })
         .select()
         .single();

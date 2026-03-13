@@ -20,6 +20,8 @@ type RespondentFieldsConfig = {
     gender?: boolean;
     join_year?: boolean;
     hire_type?: boolean;
+    department?: boolean;
+    department_options?: string[];
 };
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -53,6 +55,7 @@ export default function SurveyClientForm({
     const [respondentGender, setRespondentGender] = useState("");
     const [respondentJoinYear, setRespondentJoinYear] = useState("");
     const [respondentHireType, setRespondentHireType] = useState("");
+    const [respondentDepartment, setRespondentDepartment] = useState("");
 
     const setAnswer = (questionId: string, value: string) => {
         setAnswers((prev) => ({ ...prev, [questionId]: value }));
@@ -79,6 +82,7 @@ export default function SurveyClientForm({
             if (respondentFields.gender && !respondentGender) { alert("性別を選択してください"); return; }
             if (respondentFields.join_year && !respondentJoinYear) { alert("入社年度を選択してください"); return; }
             if (respondentFields.hire_type && !respondentHireType) { alert("新卒/中途を選択してください"); return; }
+            if (respondentFields.department && !respondentDepartment) { alert("部署を選択してください"); return; }
         }
 
         if (hasError) {
@@ -109,6 +113,7 @@ export default function SurveyClientForm({
                 gender: respondentFields.gender ? respondentGender : undefined,
                 join_year: respondentFields.join_year ? parseInt(respondentJoinYear, 10) : undefined,
                 hire_type: respondentFields.hire_type ? respondentHireType : undefined,
+                department: respondentFields.department ? respondentDepartment : undefined,
             };
 
             const result = await submitSurveyResponse(surveyId, responses, respondentData);
@@ -232,6 +237,21 @@ export default function SurveyClientForm({
                                             <option value="">選択してください</option>
                                             <option value="new_grad">新卒</option>
                                             <option value="mid_career">中途</option>
+                                        </select>
+                                    </div>
+                                )}
+                                {respondentFields.department && (
+                                    <div className="space-y-1">
+                                        <label className="text-sm font-medium text-slate-700">部署</label>
+                                        <select
+                                            value={respondentDepartment}
+                                            onChange={(e) => setRespondentDepartment(e.target.value)}
+                                            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                                        >
+                                            <option value="">選択してください</option>
+                                            {(respondentFields.department_options ?? []).map((opt) => (
+                                                <option key={opt} value={opt}>{opt}</option>
+                                            ))}
                                         </select>
                                     </div>
                                 )}

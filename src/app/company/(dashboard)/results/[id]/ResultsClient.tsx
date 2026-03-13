@@ -249,6 +249,9 @@ export default function ResultsClient({ survey, questionStats, totalResponses, o
                                         </div>
                                     </div>
                                     <div className="flex flex-wrap gap-2">
+                                        {response.respondent_department && (
+                                            <span className="text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border border-indigo-100">{response.respondent_department}</span>
+                                        )}
                                         {response.respondent_age && (
                                             <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{response.respondent_age}歳</span>
                                         )}
