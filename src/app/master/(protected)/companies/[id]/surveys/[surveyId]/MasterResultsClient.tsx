@@ -129,7 +129,15 @@ function computeStats(responses: any[], questions: any[]) {
     });
 }
 
-export default function ResultsClient({ survey, questionStats, totalResponses, overallAvg }: Props) {
+const ratingOptions = [
+    { value: "1", label: "全くそう思わない" },
+    { value: "2", label: "そう思わない" },
+    { value: "3", label: "どちらとも言えない" },
+    { value: "4", label: "そう思う" },
+    { value: "5", label: "非常にそう思う" },
+];
+
+export default function MasterResultsClient({ survey, questionStats, totalResponses, overallAvg }: Props) {
     const [view, setView] = useState<"aggregate" | "list">("aggregate");
     const [filters, setFilters] = useState<FilterState>({
         department: "", gender: "", hire_type: "", join_year: "", age: ""
@@ -140,7 +148,6 @@ export default function ResultsClient({ survey, questionStats, totalResponses, o
     const responses = survey.responses || [];
     const questions = survey.questions || [];
 
-    // Unique values for filter dropdowns
     const uniqueDepts = useMemo(() =>
         [...new Set<string>(responses.map((r: any) => r.respondent_department).filter(Boolean))].sort(),
         [responses]
@@ -164,7 +171,6 @@ export default function ResultsClient({ survey, questionStats, totalResponses, o
 
     const hasAnyAttrData = uniqueDepts.length > 0 || uniqueGenders.length > 0 || uniqueHireTypes.length > 0 || uniqueJoinYears.length > 0 || uniqueAges.length > 0;
 
-    // Apply filters to responses
     const filteredResponses = useMemo(() => {
         return responses.filter((r: any) => {
             if (filters.department && r.respondent_department !== filters.department) return false;
@@ -179,7 +185,6 @@ export default function ResultsClient({ survey, questionStats, totalResponses, o
     const isFiltered = Object.values(filters).some(Boolean);
     const activeFilterCount = Object.values(filters).filter(Boolean).length;
 
-    // Recompute stats for filtered responses
     const activeStats = useMemo(() => {
         if (!isFiltered) return questionStats;
         return computeStats(filteredResponses, questions);
@@ -192,7 +197,6 @@ export default function ResultsClient({ survey, questionStats, totalResponses, o
             : 0;
     }, [activeStats]);
 
-    // Genre-filtered stats
     const genreFilteredStats = useMemo(() => {
         if (!genreFilter) return activeStats;
         return activeStats.filter((q: any) => q.genre === genreFilter);
@@ -209,7 +213,6 @@ export default function ResultsClient({ survey, questionStats, totalResponses, o
 
     const filteredTotal = filteredResponses.length;
 
-    // Attribute counts (from filtered responses)
     function countBy(resp: any[], field: string, labelMap?: Record<string, string>) {
         const counts: Record<string, number> = {};
         for (const r of resp) {
@@ -229,7 +232,6 @@ export default function ResultsClient({ survey, questionStats, totalResponses, o
     const hasAttrData = deptCounts.length > 0 || genderCounts.length > 0 || hireTypeCounts.length > 0 || joinYearCounts.length > 0 || ageCounts.length > 0;
 
     const clearFilters = () => setFilters({ department: "", gender: "", hire_type: "", join_year: "", age: "" });
-
     const selectClass = "h-8 rounded-md border border-slate-200 bg-white px-2 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-400";
 
     return (
@@ -241,15 +243,11 @@ export default function ResultsClient({ survey, questionStats, totalResponses, o
                         <div className="w-9 h-9 rounded-lg bg-violet-50 flex items-center justify-center">
                             <Users className="w-5 h-5 text-violet-600" />
                         </div>
-                        <span className="text-sm text-slate-500">
-                            {isFiltered ? "フィルター後の回答数" : "総回答数"}
-                        </span>
+                        <span className="text-sm text-slate-500">{isFiltered ? "フィルター後の回答数" : "総回答数"}</span>
                     </div>
                     <p className="text-3xl font-bold text-slate-900">
                         {isFiltered ? filteredTotal : totalResponses}
-                        {isFiltered && (
-                            <span className="text-base text-slate-400 font-normal"> / {totalResponses}</span>
-                        )}
+                        {isFiltered && <span className="text-base text-slate-400 font-normal"> / {totalResponses}</span>}
                     </p>
                 </div>
                 <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
@@ -282,26 +280,18 @@ export default function ResultsClient({ survey, questionStats, totalResponses, o
                 </div>
             </div>
 
-            {/* View Toggle + Filter Button */}
+            {/* View Toggle + Filters */}
             <div className="flex items-center gap-2 flex-wrap">
                 <button
                     onClick={() => setView("aggregate")}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        view === "aggregate"
-                            ? "bg-indigo-600 text-white"
-                            : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
-                    }`}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${view === "aggregate" ? "bg-indigo-600 text-white" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"}`}
                 >
                     <BarChart2 className="w-4 h-4" />
                     集計表示
                 </button>
                 <button
                     onClick={() => setView("list")}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        view === "list"
-                            ? "bg-indigo-600 text-white"
-                            : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
-                    }`}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${view === "list" ? "bg-indigo-600 text-white" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"}`}
                 >
                     <List className="w-4 h-4" />
                     回答者別
@@ -328,18 +318,12 @@ export default function ResultsClient({ survey, questionStats, totalResponses, o
                 {hasAnyAttrData && (
                     <button
                         onClick={() => setShowFilter(!showFilter)}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ml-auto ${
-                            showFilter || isFiltered
-                                ? "bg-amber-50 border border-amber-300 text-amber-700"
-                                : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
-                        }`}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ml-auto ${showFilter || isFiltered ? "bg-amber-50 border border-amber-300 text-amber-700" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"}`}
                     >
                         <Filter className="w-4 h-4" />
                         フィルター
                         {activeFilterCount > 0 && (
-                            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-500 text-white text-xs font-bold">
-                                {activeFilterCount}
-                            </span>
+                            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-500 text-white text-xs font-bold">{activeFilterCount}</span>
                         )}
                     </button>
                 )}
@@ -350,107 +334,67 @@ export default function ResultsClient({ survey, questionStats, totalResponses, o
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
                     <div className="flex items-center justify-between">
                         <p className="text-sm font-medium text-amber-800">属性フィルター</p>
-                        <div className="flex items-center gap-2">
-                            {isFiltered && (
-                                <button
-                                    onClick={clearFilters}
-                                    className="flex items-center gap-1 text-xs text-amber-700 hover:text-amber-900 underline"
-                                >
-                                    <X className="w-3 h-3" />
-                                    クリア
-                                </button>
-                            )}
-                        </div>
+                        {isFiltered && (
+                            <button onClick={clearFilters} className="flex items-center gap-1 text-xs text-amber-700 hover:text-amber-900 underline">
+                                <X className="w-3 h-3" />クリア
+                            </button>
+                        )}
                     </div>
                     <div className="flex flex-wrap gap-3">
                         {uniqueDepts.length > 0 && (
                             <div className="flex flex-col gap-1">
                                 <label className="text-xs text-amber-700 font-medium">部署</label>
-                                <select
-                                    className={selectClass}
-                                    value={filters.department}
-                                    onChange={(e) => setFilters(f => ({ ...f, department: e.target.value }))}
-                                >
+                                <select className={selectClass} value={filters.department} onChange={(e) => setFilters(f => ({ ...f, department: e.target.value }))}>
                                     <option value="">すべて</option>
-                                    {uniqueDepts.map((d) => (
-                                        <option key={d} value={d}>{d}</option>
-                                    ))}
+                                    {uniqueDepts.map((d) => <option key={d} value={d}>{d}</option>)}
                                 </select>
                             </div>
                         )}
                         {uniqueGenders.length > 0 && (
                             <div className="flex flex-col gap-1">
                                 <label className="text-xs text-amber-700 font-medium">性別</label>
-                                <select
-                                    className={selectClass}
-                                    value={filters.gender}
-                                    onChange={(e) => setFilters(f => ({ ...f, gender: e.target.value }))}
-                                >
+                                <select className={selectClass} value={filters.gender} onChange={(e) => setFilters(f => ({ ...f, gender: e.target.value }))}>
                                     <option value="">すべて</option>
-                                    {uniqueGenders.map((g) => (
-                                        <option key={g} value={g}>{GENDER_LABELS[g] ?? g}</option>
-                                    ))}
+                                    {uniqueGenders.map((g) => <option key={g} value={g}>{GENDER_LABELS[g] ?? g}</option>)}
                                 </select>
                             </div>
                         )}
                         {uniqueHireTypes.length > 0 && (
                             <div className="flex flex-col gap-1">
                                 <label className="text-xs text-amber-700 font-medium">新卒 / 中途</label>
-                                <select
-                                    className={selectClass}
-                                    value={filters.hire_type}
-                                    onChange={(e) => setFilters(f => ({ ...f, hire_type: e.target.value }))}
-                                >
+                                <select className={selectClass} value={filters.hire_type} onChange={(e) => setFilters(f => ({ ...f, hire_type: e.target.value }))}>
                                     <option value="">すべて</option>
-                                    {uniqueHireTypes.map((h) => (
-                                        <option key={h} value={h}>{HIRE_TYPE_LABELS[h] ?? h}</option>
-                                    ))}
+                                    {uniqueHireTypes.map((h) => <option key={h} value={h}>{HIRE_TYPE_LABELS[h] ?? h}</option>)}
                                 </select>
                             </div>
                         )}
                         {uniqueJoinYears.length > 0 && (
                             <div className="flex flex-col gap-1">
                                 <label className="text-xs text-amber-700 font-medium">入社年度</label>
-                                <select
-                                    className={selectClass}
-                                    value={filters.join_year}
-                                    onChange={(e) => setFilters(f => ({ ...f, join_year: e.target.value }))}
-                                >
+                                <select className={selectClass} value={filters.join_year} onChange={(e) => setFilters(f => ({ ...f, join_year: e.target.value }))}>
                                     <option value="">すべて</option>
-                                    {uniqueJoinYears.map((y) => (
-                                        <option key={y} value={String(y)}>{y}年</option>
-                                    ))}
+                                    {uniqueJoinYears.map((y) => <option key={y} value={String(y)}>{y}年</option>)}
                                 </select>
                             </div>
                         )}
                         {uniqueAges.length > 0 && (
                             <div className="flex flex-col gap-1">
                                 <label className="text-xs text-amber-700 font-medium">年齢</label>
-                                <select
-                                    className={selectClass}
-                                    value={filters.age}
-                                    onChange={(e) => setFilters(f => ({ ...f, age: e.target.value }))}
-                                >
+                                <select className={selectClass} value={filters.age} onChange={(e) => setFilters(f => ({ ...f, age: e.target.value }))}>
                                     <option value="">すべて</option>
-                                    {uniqueAges.map((a) => (
-                                        <option key={a} value={String(a)}>{a}歳</option>
-                                    ))}
+                                    {uniqueAges.map((a) => <option key={a} value={String(a)}>{a}歳</option>)}
                                 </select>
                             </div>
                         )}
                     </div>
-                    {isFiltered && (
-                        <p className="text-xs text-amber-700">
-                            {filteredTotal}件 / {totalResponses}件の回答を表示中
-                        </p>
-                    )}
+                    {isFiltered && <p className="text-xs text-amber-700">{filteredTotal}件 / {totalResponses}件の回答を表示中</p>}
                 </div>
             )}
 
             {/* Aggregate View */}
             {view === "aggregate" && (
                 <div className="space-y-6">
-                    {/* Genre breakdown summary (only when no genre filter) */}
+                    {/* Genre breakdown summary */}
                     {!genreFilter && (
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                             {GENRES.map((g) => {
@@ -505,11 +449,9 @@ export default function ResultsClient({ survey, questionStats, totalResponses, o
 
                                     {q.type === "score" && (
                                         <div className="ml-9 space-y-4">
-                                            <div className="flex items-center gap-4">
-                                                <div className="flex-1">
-                                                    <p className="text-xs text-slate-400 mb-1">平均スコア ({q.scoreAnswers.length} 件)</p>
-                                                    <ScoreBar score={q.avg} />
-                                                </div>
+                                            <div className="flex-1">
+                                                <p className="text-xs text-slate-400 mb-1">平均スコア ({q.scoreAnswers.length} 件)</p>
+                                                <ScoreBar score={q.avg} />
                                             </div>
                                             {q.scoreAnswers.length > 0 && (
                                                 <div>
@@ -557,7 +499,7 @@ export default function ResultsClient({ survey, questionStats, totalResponses, o
                         </div>
                     </div>
 
-                    {/* Attribute distribution — shown inline below question stats (③) */}
+                    {/* Attribute distribution */}
                     {hasAttrData && (
                         <div className="space-y-4">
                             <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
@@ -569,51 +511,31 @@ export default function ResultsClient({ survey, questionStats, totalResponses, o
                                 {deptCounts.length > 0 && (
                                     <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
                                         <h4 className="font-medium text-slate-800 mb-3 text-sm">部署</h4>
-                                        <div className="space-y-2">
-                                            {deptCounts.map(([label, count]) => (
-                                                <AttrBar key={label} label={label} count={count} total={filteredTotal} />
-                                            ))}
-                                        </div>
+                                        <div className="space-y-2">{deptCounts.map(([label, count]) => <AttrBar key={label} label={label} count={count} total={filteredTotal} />)}</div>
                                     </div>
                                 )}
                                 {genderCounts.length > 0 && (
                                     <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
                                         <h4 className="font-medium text-slate-800 mb-3 text-sm">性別</h4>
-                                        <div className="space-y-2">
-                                            {genderCounts.map(([label, count]) => (
-                                                <AttrBar key={label} label={label} count={count} total={filteredTotal} />
-                                            ))}
-                                        </div>
+                                        <div className="space-y-2">{genderCounts.map(([label, count]) => <AttrBar key={label} label={label} count={count} total={filteredTotal} />)}</div>
                                     </div>
                                 )}
                                 {hireTypeCounts.length > 0 && (
                                     <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
                                         <h4 className="font-medium text-slate-800 mb-3 text-sm">入社区分</h4>
-                                        <div className="space-y-2">
-                                            {hireTypeCounts.map(([label, count]) => (
-                                                <AttrBar key={label} label={label} count={count} total={filteredTotal} />
-                                            ))}
-                                        </div>
+                                        <div className="space-y-2">{hireTypeCounts.map(([label, count]) => <AttrBar key={label} label={label} count={count} total={filteredTotal} />)}</div>
                                     </div>
                                 )}
                                 {joinYearCounts.length > 0 && (
                                     <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
                                         <h4 className="font-medium text-slate-800 mb-3 text-sm">入社年度</h4>
-                                        <div className="space-y-2">
-                                            {joinYearCounts.map(([label, count]) => (
-                                                <AttrBar key={label} label={`${label}年`} count={count} total={filteredTotal} />
-                                            ))}
-                                        </div>
+                                        <div className="space-y-2">{joinYearCounts.map(([label, count]) => <AttrBar key={label} label={`${label}年`} count={count} total={filteredTotal} />)}</div>
                                     </div>
                                 )}
                                 {ageCounts.length > 0 && (
                                     <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
                                         <h4 className="font-medium text-slate-800 mb-3 text-sm">年齢</h4>
-                                        <div className="space-y-2">
-                                            {ageCounts.map(([label, count]) => (
-                                                <AttrBar key={label} label={`${label}歳`} count={count} total={filteredTotal} />
-                                            ))}
-                                        </div>
+                                        <div className="space-y-2">{ageCounts.map(([label, count]) => <AttrBar key={label} label={`${label}歳`} count={count} total={filteredTotal} />)}</div>
                                     </div>
                                 )}
                             </div>
@@ -626,9 +548,7 @@ export default function ResultsClient({ survey, questionStats, totalResponses, o
             {view === "list" && (
                 <div className="space-y-4">
                     {(isFiltered ? filteredResponses : responses).length === 0 && (
-                        <div className="bg-white rounded-xl border border-slate-200 p-10 text-center text-slate-400 text-sm">
-                            条件に一致する回答がありません
-                        </div>
+                        <div className="bg-white rounded-xl border border-slate-200 p-10 text-center text-slate-400 text-sm">条件に一致する回答がありません</div>
                     )}
                     {(isFiltered ? filteredResponses : responses).map((response: any, ri: number) => {
                         const nameLabel = response.respondent_name ?? `回答者 ${ri + 1}`;
@@ -636,9 +556,7 @@ export default function ResultsClient({ survey, questionStats, totalResponses, o
                             <div key={response.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                                 <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-xs font-bold text-indigo-700">
-                                            {ri + 1}
-                                        </div>
+                                        <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-xs font-bold text-indigo-700">{ri + 1}</div>
                                         <div>
                                             <p className="text-sm font-semibold text-slate-900">{nameLabel}</p>
                                             <p className="text-xs text-slate-400">
@@ -650,21 +568,11 @@ export default function ResultsClient({ survey, questionStats, totalResponses, o
                                         </div>
                                     </div>
                                     <div className="flex flex-wrap gap-2">
-                                        {response.respondent_department && (
-                                            <span className="text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border border-indigo-100">{response.respondent_department}</span>
-                                        )}
-                                        {response.respondent_age && (
-                                            <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{response.respondent_age}歳</span>
-                                        )}
-                                        {response.respondent_gender && (
-                                            <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{GENDER_LABELS[response.respondent_gender] ?? response.respondent_gender}</span>
-                                        )}
-                                        {response.respondent_join_year && (
-                                            <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{response.respondent_join_year}年入社</span>
-                                        )}
-                                        {response.respondent_hire_type && (
-                                            <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{HIRE_TYPE_LABELS[response.respondent_hire_type] ?? response.respondent_hire_type}</span>
-                                        )}
+                                        {response.respondent_department && <span className="text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border border-indigo-100">{response.respondent_department}</span>}
+                                        {response.respondent_age && <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{response.respondent_age}歳</span>}
+                                        {response.respondent_gender && <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{GENDER_LABELS[response.respondent_gender] ?? response.respondent_gender}</span>}
+                                        {response.respondent_join_year && <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{response.respondent_join_year}年入社</span>}
+                                        {response.respondent_hire_type && <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{HIRE_TYPE_LABELS[response.respondent_hire_type] ?? response.respondent_hire_type}</span>}
                                     </div>
                                 </div>
                                 <div className="divide-y divide-slate-50">
@@ -703,11 +611,3 @@ export default function ResultsClient({ survey, questionStats, totalResponses, o
         </div>
     );
 }
-
-const ratingOptions = [
-    { value: "1", label: "全くそう思わない" },
-    { value: "2", label: "そう思わない" },
-    { value: "3", label: "どちらとも言えない" },
-    { value: "4", label: "そう思う" },
-    { value: "5", label: "非常にそう思う" },
-];
