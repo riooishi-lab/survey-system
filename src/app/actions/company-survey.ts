@@ -609,14 +609,7 @@ export async function getCompanySurveyResults(surveyId: string) {
             *,
             questions (*),
             responses (
-                id,
-                created_at,
-                respondent_name,
-                respondent_age,
-                respondent_gender,
-                respondent_join_year,
-                respondent_hire_type,
-                respondent_department,
+                *,
                 answers (*)
             )
         `)
