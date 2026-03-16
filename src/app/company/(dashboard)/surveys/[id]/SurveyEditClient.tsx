@@ -529,7 +529,9 @@ export default function SurveyEditClient({ survey, departmentOptions = [] }: { s
                                 <CardDescription>5段階評価または記述式</CardDescription>
                             </div>
                             <div className="flex items-center gap-2">
-                                <span className="text-sm text-slate-500">{questions.length}問</span>
+                                <span className="inline-flex items-center gap-1 text-sm font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-full px-3 py-0.5">
+                                    {questions.length}<span className="font-normal text-indigo-500">問</span>
+                                </span>
                                 <Button onClick={addQuestion} variant="outline" size="sm" className="gap-1 border-indigo-200 text-indigo-700 hover:bg-indigo-50">
                                     <Plus className="h-4 w-4" />
                                     設問を追加
@@ -600,6 +602,16 @@ export default function SurveyEditClient({ survey, departmentOptions = [] }: { s
                                         </Button>
                                     </div>
                                 ))}
+                            </div>
+                            {/* Bottom add button — always visible when scrolled past the header */}
+                            <div className="flex items-center justify-between px-5 py-4 border-t border-slate-100 bg-slate-50/60">
+                                <span className="text-sm text-slate-500">
+                                    現在 <span className="font-bold text-indigo-700">{questions.length}</span> 問
+                                </span>
+                                <Button onClick={addQuestion} variant="outline" size="sm" className="gap-1 border-indigo-200 text-indigo-700 hover:bg-indigo-50">
+                                    <Plus className="h-4 w-4" />
+                                    設問を追加
+                                </Button>
                             </div>
                         </CardContent>
                     </Card>
