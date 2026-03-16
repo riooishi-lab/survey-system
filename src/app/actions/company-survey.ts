@@ -599,6 +599,31 @@ export async function updateCompanySettings(settings: { department_options: stri
     return { success: true };
 }
 
+export async function deleteCompanySurvey(surveyId: string) {
+    const companyId = await requireCompanyAuth();
+    const supabase = getSupabase();
+
+    // Verify ownership
+    const { data: survey } = await supabase
+        .from("surveys")
+        .select("id")
+        .eq("id", surveyId)
+        .eq("company_id", companyId)
+        .single();
+
+    if (!survey) return { error: "権限がありません" };
+
+    const { error } = await supabase
+        .from("surveys")
+        .delete()
+        .eq("id", surveyId);
+
+    if (error) return { error: "削除に失敗しました" };
+
+    revalidatePath("/company");
+    return { success: true };
+}
+
 export async function getCompanySurveyResults(surveyId: string) {
     const companyId = await requireCompanyAuth();
     const supabase = getSupabase();
