@@ -210,7 +210,7 @@ export default function SurveyEditClient({ survey, departmentOptions = [] }: { s
                 ...(respondentFields.department ? { department_options: deptOptions.filter(Boolean) } : {}),
               };
         const saveResult = await updateCompanySurvey(survey.id, {
-            title, description, deadline, status,
+            title, description, deadline, status: "active",
             is_anonymous: isAnonymous,
             respondent_fields: fields,
             questions: validQuestions.map((q, i) => ({
@@ -224,6 +224,8 @@ export default function SurveyEditClient({ survey, departmentOptions = [] }: { s
             setIsIssuingLink(false);
             return;
         }
+
+        setStatus("active");
 
         if (saveResult.linksDeactivated) {
             alert("設問の変更により、既存の回答リンクがすべて無効化されました。新しいリンクを発行します。");
