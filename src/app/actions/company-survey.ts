@@ -592,7 +592,7 @@ export async function updateCompanySettings(settings: { department_options: stri
 
     if (error) {
         console.error("Company settings update error:", error);
-        return { error: "設定の保存に失敗しました" };
+        return { error: `設定の保存に失敗しました [${error.code}] ${error.message}` };
     }
 
     revalidatePath("/company");
