@@ -340,7 +340,7 @@ export async function createCompanySurvey(surveyData: {
     status: "draft" | "active" | "closed";
     is_anonymous?: boolean;
     respondent_fields?: Record<string, boolean | string[]>;
-    questions: { text: string; type: "score" | "text" | "choice"; order_index: number; options?: string[] }[];
+    questions: { text: string; type: "score" | "text" | "choice"; order_index: number; options?: string[]; genre?: string }[];
 }) {
     const companyId = await requireCompanyAuth();
     const supabase = getSupabase();
@@ -375,6 +375,7 @@ export async function createCompanySurvey(surveyData: {
                     order_index: q.order_index,
                     // choice 以外は options を含めない（DB に options カラムがない環境でも動作させるため）
                     ...(q.type === "choice" ? { options: q.options ?? [] } : {}),
+                    ...(q.genre ? { genre: q.genre } : {}),
                 }))
             );
 
@@ -399,7 +400,7 @@ export async function updateCompanySurvey(
         status: "draft" | "active" | "closed";
         is_anonymous?: boolean;
         respondent_fields?: Record<string, boolean | string[]>;
-        questions: { id?: string; text: string; type: "score" | "text" | "choice"; order_index: number; options?: string[] }[];
+        questions: { id?: string; text: string; type: "score" | "text" | "choice"; order_index: number; options?: string[]; genre?: string }[];
     }
 ) {
     const companyId = await requireCompanyAuth();
@@ -493,6 +494,7 @@ export async function updateCompanySurvey(
                 order_index: q.order_index,
                 // choice 以外は options を含めない
                 ...(q.type === "choice" ? { options: q.options ?? [] } : {}),
+                genre: q.genre ?? null,
             })
             .eq("id", q.id!);
     }
@@ -506,6 +508,7 @@ export async function updateCompanySurvey(
                 order_index: q.order_index,
                 // choice 以外は options を含めない
                 ...(q.type === "choice" ? { options: q.options ?? [] } : {}),
+                genre: q.genre ?? null,
             }))
         );
     }

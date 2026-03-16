@@ -104,7 +104,7 @@ export default async function MasterDashboard() {
                             }, 0);
 
                             return (
-                                <div key={company.id} className="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors">
+                                <Link key={company.id} href={`/master/companies/${company.id}`} className="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors cursor-pointer">
                                     <div className="flex items-center gap-4">
                                         <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold text-sm">
                                             {company.name.charAt(0)}
@@ -128,7 +128,7 @@ export default async function MasterDashboard() {
                                             {company.status === "active" ? "有効" : "無効"}
                                         </Badge>
                                     </div>
-                                </div>
+                                </Link>
                             );
                         })
                     )}

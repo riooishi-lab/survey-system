@@ -20,7 +20,10 @@ import {
     ExternalLink, XCircle, Loader2
 } from "lucide-react";
 
-type Question = { id?: string; text: string; type: "score" | "text" | "choice"; options?: string[] };
+const GENRES = ["目標の魅力", "人材の魅力", "活動の魅力", "条件の魅力"] as const;
+type Genre = typeof GENRES[number];
+
+type Question = { id?: string; text: string; type: "score" | "text" | "choice"; options?: string[]; genre?: Genre };
 type SurveyLink = { id: string; token: string; is_active: boolean; expires_at: string | null; created_at: string };
 
 type RespondentFields = {
@@ -89,7 +92,7 @@ export default function SurveyEditClient({ survey, departmentOptions = [] }: { s
         department: survey.respondent_fields?.department ?? false,
     });
     const [questions, setQuestions] = useState<Question[]>(
-        (survey.questions || []).map((q: any) => ({ id: q.id, text: q.text, type: q.type, options: q.options ?? undefined }))
+        (survey.questions || []).map((q: any) => ({ id: q.id, text: q.text, type: q.type, options: q.options ?? undefined, genre: q.genre ?? undefined }))
     );
     const [links, setLinks] = useState<SurveyLink[]>(survey.survey_links || []);
 
@@ -128,6 +131,10 @@ export default function SurveyEditClient({ survey, departmentOptions = [] }: { s
         setQuestions(questions.filter((_, i) => i !== index));
     };
 
+    const updateGenre = (index: number, genre: Genre) => {
+        setQuestions(questions.map((q, i) => (i === index ? { ...q, genre } : q)));
+    };
+
     const handleSave = async (newStatus?: "draft" | "active" | "closed") => {
         if (!title.trim()) { alert("タイトルを入力してください"); return; }
         const validQuestions = questions.filter((q) => q.text.trim());
@@ -164,6 +171,7 @@ export default function SurveyEditClient({ survey, departmentOptions = [] }: { s
                 type: q.type,
                 order_index: i,
                 options: q.options,
+                genre: q.genre,
             })),
         });
 
@@ -207,7 +215,7 @@ export default function SurveyEditClient({ survey, departmentOptions = [] }: { s
             respondent_fields: fields,
             questions: validQuestions.map((q, i) => ({
                 id: q.id && q.id.length > 13 ? q.id : undefined,
-                text: q.text, type: q.type, order_index: i, options: q.options,
+                text: q.text, type: q.type, order_index: i, options: q.options, genre: q.genre,
             })),
         });
 
@@ -544,17 +552,29 @@ export default function SurveyEditClient({ survey, departmentOptions = [] }: { s
                                     <div key={index} className="p-4 sm:p-6 group flex gap-4 items-start hover:bg-slate-50/50 transition-colors">
                                         <Badge className="bg-indigo-600 text-white shrink-0 mt-1">Q{index + 1}</Badge>
                                         <div className="flex-1 space-y-3">
-                                            <div className="flex rounded-md" role="group">
-                                                {(["score", "text", "choice"] as const).map((type) => (
-                                                    <button
-                                                        key={type}
-                                                        type="button"
-                                                        onClick={() => updateType(index, type)}
-                                                        className={`px-4 py-1.5 text-xs font-medium border border-slate-200 first:rounded-l-lg last:rounded-r-lg last:border-l-0 hover:bg-slate-50 transition-colors ${q.type === type ? "bg-indigo-50 text-indigo-600 border-indigo-200" : "bg-white text-slate-700"}`}
-                                                    >
-                                                        {type === "score" ? "5段階評価" : type === "text" ? "記述式" : "選択式"}
-                                                    </button>
-                                                ))}
+                                            <div className="flex flex-wrap gap-2">
+                                                <div className="flex rounded-md" role="group">
+                                                    {(["score", "text", "choice"] as const).map((type) => (
+                                                        <button
+                                                            key={type}
+                                                            type="button"
+                                                            onClick={() => updateType(index, type)}
+                                                            className={`px-4 py-1.5 text-xs font-medium border border-slate-200 first:rounded-l-lg last:rounded-r-lg last:border-l-0 hover:bg-slate-50 transition-colors ${q.type === type ? "bg-indigo-50 text-indigo-600 border-indigo-200" : "bg-white text-slate-700"}`}
+                                                        >
+                                                            {type === "score" ? "5段階評価" : type === "text" ? "記述式" : "選択式"}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                                <select
+                                                    value={q.genre ?? ""}
+                                                    onChange={(e) => updateGenre(index, e.target.value as Genre)}
+                                                    className="h-[30px] rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                                                >
+                                                    <option value="">ジャンル未設定</option>
+                                                    {GENRES.map((g) => (
+                                                        <option key={g} value={g}>{g}</option>
+                                                    ))}
+                                                </select>
                                             </div>
                                             <Textarea
                                                 value={q.text}

@@ -110,3 +110,59 @@ export async function deleteCompany(companyId: string) {
 
     return { success: true };
 }
+
+export async function getMasterCompany(companyId: string) {
+    await requireMasterAuth();
+    const supabase = getSupabase();
+
+    const { data, error } = await supabase
+        .from("companies")
+        .select(`
+            *,
+            surveys (
+                id,
+                title,
+                status,
+                created_at,
+                deadline,
+                responses (count)
+            )
+        `)
+        .eq("id", companyId)
+        .single();
+
+    if (error || !data) {
+        return { error: "企業情報の取得に失敗しました" };
+    }
+
+    return { data };
+}
+
+export async function getMasterSurveyResults(companyId: string, surveyId: string) {
+    await requireMasterAuth();
+    const supabase = getSupabase();
+
+    const { data: survey, error } = await supabase
+        .from("surveys")
+        .select(`
+            *,
+            questions (*),
+            responses (
+                *,
+                answers (*)
+            )
+        `)
+        .eq("id", surveyId)
+        .eq("company_id", companyId)
+        .single();
+
+    if (error || !survey) {
+        return { error: "サーベイ結果の取得に失敗しました" };
+    }
+
+    if (survey.questions) {
+        survey.questions.sort((a: any, b: any) => a.order_index - b.order_index);
+    }
+
+    return { data: survey };
+}

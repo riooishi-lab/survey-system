@@ -38,7 +38,10 @@ const DEFAULT_QUESTIONS = [
     "現在の仕事に対して、やりがいを感じられていますか？",
 ];
 
-type Question = { id: string; text: string; type: "score" | "text" | "choice"; options?: string[] };
+const GENRES = ["目標の魅力", "人材の魅力", "活動の魅力", "条件の魅力"] as const;
+type Genre = typeof GENRES[number];
+
+type Question = { id: string; text: string; type: "score" | "text" | "choice"; options?: string[]; genre?: Genre };
 
 export default function NewCompanySurveyPage() {
     const router = useRouter();
@@ -86,6 +89,10 @@ export default function NewCompanySurveyPage() {
 
     const addQuestion = () => {
         setQuestions([...questions, { id: Date.now().toString(), type: "score", text: "" }]);
+    };
+
+    const updateGenre = (id: string, genre: Genre) => {
+        setQuestions(questions.map((q) => (q.id === id ? { ...q, genre } : q)));
     };
 
     const updateText = (id: string, text: string) => {
@@ -154,7 +161,7 @@ export default function NewCompanySurveyPage() {
             status,
             is_anonymous: isAnonymous,
             respondent_fields: fields,
-            questions: validQuestions.map((q, i) => ({ text: q.text, type: q.type, order_index: i, options: q.options })),
+            questions: validQuestions.map((q, i) => ({ text: q.text, type: q.type, order_index: i, options: q.options, genre: q.genre })),
         });
 
         if (result.error) {
@@ -327,28 +334,46 @@ export default function NewCompanySurveyPage() {
                                 <CardTitle className="text-lg">設問一覧</CardTitle>
                                 <CardDescription>5段階評価または記述式</CardDescription>
                             </div>
-                            <Button onClick={addQuestion} variant="outline" size="sm" className="gap-1 border-indigo-200 text-indigo-700 hover:bg-indigo-50">
-                                <Plus className="h-4 w-4" />
-                                設問を追加
-                            </Button>
+                            <div className="flex items-center gap-2">
+                                <span className="inline-flex items-center gap-1 text-sm font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-full px-3 py-0.5">
+                                    {questions.length}<span className="font-normal text-indigo-500">問</span>
+                                </span>
+                                <Button onClick={addQuestion} variant="outline" size="sm" className="gap-1 border-indigo-200 text-indigo-700 hover:bg-indigo-50">
+                                    <Plus className="h-4 w-4" />
+                                    設問を追加
+                                </Button>
+                            </div>
                         </CardHeader>
                         <CardContent className="p-0">
                             <div className="divide-y divide-slate-100">
                                 {questions.map((q, index) => (
+
                                     <div key={q.id} className="p-4 sm:p-6 group flex gap-4 items-start hover:bg-slate-50/50 transition-colors">
                                         <Badge className="bg-indigo-600 text-white shrink-0 mt-1">Q{index + 1}</Badge>
                                         <div className="flex-1 space-y-3">
-                                            <div className="flex rounded-md" role="group">
-                                                {(["score", "text", "choice"] as const).map((type) => (
-                                                    <button
-                                                        key={type}
-                                                        type="button"
-                                                        onClick={() => updateType(q.id, type)}
-                                                        className={`px-4 py-1.5 text-xs font-medium border border-slate-200 first:rounded-l-lg last:rounded-r-lg last:border-l-0 hover:bg-slate-50 transition-colors ${q.type === type ? "bg-indigo-50 text-indigo-600 border-indigo-200 z-10" : "bg-white text-slate-700"}`}
-                                                    >
-                                                        {type === "score" ? "5段階評価" : type === "text" ? "記述式" : "選択式"}
-                                                    </button>
-                                                ))}
+                                            <div className="flex flex-wrap gap-2">
+                                                <div className="flex rounded-md" role="group">
+                                                    {(["score", "text", "choice"] as const).map((type) => (
+                                                        <button
+                                                            key={type}
+                                                            type="button"
+                                                            onClick={() => updateType(q.id, type)}
+                                                            className={`px-4 py-1.5 text-xs font-medium border border-slate-200 first:rounded-l-lg last:rounded-r-lg last:border-l-0 hover:bg-slate-50 transition-colors ${q.type === type ? "bg-indigo-50 text-indigo-600 border-indigo-200 z-10" : "bg-white text-slate-700"}`}
+                                                        >
+                                                            {type === "score" ? "5段階評価" : type === "text" ? "記述式" : "選択式"}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                                <select
+                                                    value={q.genre ?? ""}
+                                                    onChange={(e) => updateGenre(q.id, e.target.value as Genre)}
+                                                    className="h-[30px] rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                                                >
+                                                    <option value="">ジャンル未設定</option>
+                                                    {GENRES.map((g) => (
+                                                        <option key={g} value={g}>{g}</option>
+                                                    ))}
+                                                </select>
                                             </div>
                                             <Textarea
                                                 value={q.text}
@@ -396,6 +421,16 @@ export default function NewCompanySurveyPage() {
                                         </Button>
                                     </div>
                                 ))}
+                            </div>
+                            {/* Bottom add button */}
+                            <div className="flex items-center justify-between px-5 py-4 border-t border-slate-100 bg-slate-50/60">
+                                <span className="text-sm text-slate-500">
+                                    現在 <span className="font-bold text-indigo-700">{questions.length}</span> 問
+                                </span>
+                                <Button onClick={addQuestion} variant="outline" size="sm" className="gap-1 border-indigo-200 text-indigo-700 hover:bg-indigo-50">
+                                    <Plus className="h-4 w-4" />
+                                    設問を追加
+                                </Button>
                             </div>
                         </CardContent>
                     </Card>
