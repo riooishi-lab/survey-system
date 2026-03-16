@@ -47,7 +47,7 @@ export default function NewCompanySurveyPage() {
     const [description, setDescription] = useState("");
     const [deadline, setDeadline] = useState("");
     const [isAnonymous, setIsAnonymous] = useState(false);
-    const [deptOptions, setDeptOptions] = useState<string[]>([]);
+    const [deptOptions, setDeptOptions] = useState<string[]>([""]);
     const [isSavingDept, setIsSavingDept] = useState(false);
     const [respondentFields, setRespondentFields] = useState<RespondentFields>({
         name: false,
@@ -59,7 +59,7 @@ export default function NewCompanySurveyPage() {
     });
 
     useEffect(() => {
-        getCompanyDepartmentOptions().then((opts) => setDeptOptions(opts)).catch(() => {});
+        getCompanyDepartmentOptions().then((opts) => setDeptOptions(opts.length > 0 ? opts : [""])).catch(() => {});
     }, []);
 
     const addDeptOption = () => setDeptOptions([...deptOptions, ""]);
@@ -74,7 +74,7 @@ export default function NewCompanySurveyPage() {
         if (result.error) {
             alert("部署リストの保存に失敗しました: " + result.error);
         } else {
-            setDeptOptions(nonEmpty.length > 0 ? nonEmpty : []);
+            setDeptOptions(nonEmpty.length > 0 ? nonEmpty : [""]);
             alert("部署リストを保存しました");
         }
         setIsSavingDept(false);
@@ -274,7 +274,7 @@ export default function NewCompanySurveyPage() {
                                         {respondentFields.department && (
                                             <div className="mt-3 rounded-lg border border-indigo-100 bg-indigo-50 p-3 space-y-2">
                                                 <p className="text-xs font-medium text-indigo-700">部署の選択肢</p>
-                                                {(deptOptions.length > 0 ? deptOptions : [""]).map((opt, i) => (
+                                                {deptOptions.map((opt, i) => (
                                                     <div key={i} className="flex items-center gap-1.5">
                                                         <span className="text-xs text-slate-400 w-4 text-right shrink-0">{i + 1}.</span>
                                                         <Input

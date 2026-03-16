@@ -49,7 +49,7 @@ export default function SurveyEditClient({ survey, departmentOptions = [] }: { s
 
     // 部署リスト（インライン編集用）
     const [deptOptions, setDeptOptions] = useState<string[]>(
-        departmentOptions.length > 0 ? departmentOptions : []
+        departmentOptions.length > 0 ? departmentOptions : [""]
     );
     const [isSavingDept, setIsSavingDept] = useState(false);
 
@@ -65,7 +65,7 @@ export default function SurveyEditClient({ survey, departmentOptions = [] }: { s
         if (result.error) {
             alert("部署リストの保存に失敗しました: " + result.error);
         } else {
-            setDeptOptions(nonEmpty.length > 0 ? nonEmpty : []);
+            setDeptOptions(nonEmpty.length > 0 ? nonEmpty : [""]);
             alert("部署リストを保存しました");
         }
         setIsSavingDept(false);
@@ -374,7 +374,7 @@ export default function SurveyEditClient({ survey, departmentOptions = [] }: { s
                                         {respondentFields.department && (
                                             <div className="mt-3 rounded-lg border border-indigo-100 bg-indigo-50 p-3 space-y-2">
                                                 <p className="text-xs font-medium text-indigo-700">部署の選択肢</p>
-                                                {(deptOptions.length > 0 ? deptOptions : [""]).map((opt, i) => (
+                                                {deptOptions.map((opt, i) => (
                                                     <div key={i} className="flex items-center gap-1.5">
                                                         <span className="text-xs text-slate-400 w-4 text-right shrink-0">{i + 1}.</span>
                                                         <Input
