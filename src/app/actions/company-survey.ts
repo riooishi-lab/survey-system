@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { getSupabase } from "@/lib/supabase-server";
@@ -14,6 +15,7 @@ import {
 } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { sendPasswordResetEmail } from "@/lib/email";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 const scryptAsync = promisify(scrypt);
 
@@ -32,6 +34,16 @@ async function verifyPassword(password: string, hash: string): Promise<boolean> 
 
 // トークンでのログイン（初回はセットアップページへリダイレクト）
 export async function companyLogin(formData: FormData) {
+    const headersList = await headers();
+    const ip = headersList.get("x-forwarded-for")?.split(",")[0].trim()
+        ?? headersList.get("x-real-ip")
+        ?? "unknown";
+
+    const { allowed } = checkRateLimit(`company-token-login:${ip}`, 10, 15 * 60 * 1000);
+    if (!allowed) {
+        return { error: "ログイン試行が多すぎます。15分後に再試行してください" };
+    }
+
     const token = (formData.get("access_token") as string)?.trim();
 
     if (!token) {
@@ -65,7 +77,17 @@ export async function companyLogin(formData: FormData) {
 
 // IDとパスワードでのログイン（セットアップ完了後）
 export async function companyPasswordLogin(formData: FormData) {
+    const headersList = await headers();
+    const ip = headersList.get("x-forwarded-for")?.split(",")[0].trim()
+        ?? headersList.get("x-real-ip")
+        ?? "unknown";
+
     const loginId = (formData.get("login_id") as string)?.trim();
+    const { allowed } = checkRateLimit(`company-login:${ip}:${loginId ?? ""}`, 10, 15 * 60 * 1000);
+    if (!allowed) {
+        return { error: "ログイン試行が多すぎます。15分後に再試行してください" };
+    }
+
     const password = (formData.get("password") as string);
 
     if (!loginId || !password) {
