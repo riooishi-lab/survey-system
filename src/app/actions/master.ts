@@ -1,10 +1,22 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { getSupabase } from "@/lib/supabase-server";
 import { setMasterSession, clearMasterSession, requireMasterAuth } from "@/lib/auth";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function masterLogin(formData: FormData) {
+    const headersList = await headers();
+    const ip = headersList.get("x-forwarded-for")?.split(",")[0].trim()
+        ?? headersList.get("x-real-ip")
+        ?? "unknown";
+
+    const { allowed } = checkRateLimit(`master-login:${ip}`, 10, 15 * 60 * 1000);
+    if (!allowed) {
+        return { error: "ログイン試行が多すぎます。15分後に再試行してください" };
+    }
+
     const password = formData.get("password") as string;
     const masterPassword = process.env.MASTER_PASSWORD;
 
