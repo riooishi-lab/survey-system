@@ -16,6 +16,7 @@ import {
 import { revalidatePath } from "next/cache";
 import { sendPasswordResetEmail } from "@/lib/email";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { writeAuditLog } from "@/lib/audit-log";
 
 const scryptAsync = promisify(scrypt);
 
@@ -39,7 +40,7 @@ export async function companyLogin(formData: FormData) {
         ?? headersList.get("x-real-ip")
         ?? "unknown";
 
-    const { allowed } = checkRateLimit(`company-token-login:${ip}`, 10, 15 * 60 * 1000);
+    const { allowed } = await checkRateLimit(`company-token-login:${ip}`, 10, 15 * 60 * 1000);
     if (!allowed) {
         return { error: "ログイン試行が多すぎます。15分後に再試行してください" };
     }
@@ -55,9 +56,11 @@ export async function companyLogin(formData: FormData) {
         .from("companies")
         .select("*")
         .eq("access_token", token)
+        .is("deleted_at", null)
         .single();
 
     if (error || !data) {
+        await writeAuditLog("company_token_login_failure", { ip });
         return { error: "アクセストークンが正しくありません" };
     }
 
@@ -71,6 +74,7 @@ export async function companyLogin(formData: FormData) {
         redirect("/company/setup");
     }
 
+    await writeAuditLog("company_token_login_success", { ip, companyId: data.id });
     await setCompanySession(data.id);
     redirect("/company");
 }
@@ -83,7 +87,7 @@ export async function companyPasswordLogin(formData: FormData) {
         ?? "unknown";
 
     const loginId = (formData.get("login_id") as string)?.trim().toLowerCase();
-    const { allowed } = checkRateLimit(`company-login:${ip}:${loginId ?? ""}`, 10, 15 * 60 * 1000);
+    const { allowed } = await checkRateLimit(`company-login:${ip}:${loginId ?? ""}`, 10, 15 * 60 * 1000);
     if (!allowed) {
         return { error: "ログイン試行が多すぎます。15分後に再試行してください" };
     }
@@ -102,6 +106,7 @@ export async function companyPasswordLogin(formData: FormData) {
         .single();
 
     if (error || !data) {
+        await writeAuditLog("company_password_login_failure", { ip, details: { login_id: loginId } });
         return { error: "メールアドレスまたはパスワードが正しくありません" };
     }
 
@@ -115,9 +120,11 @@ export async function companyPasswordLogin(formData: FormData) {
 
     const isValid = await verifyPassword(password, data.password_hash);
     if (!isValid) {
+        await writeAuditLog("company_password_login_failure", { ip, companyId: data.id });
         return { error: "メールアドレスまたはパスワードが正しくありません" };
     }
 
+    await writeAuditLog("company_password_login_success", { ip, companyId: data.id });
     await setCompanySession(data.id);
     redirect("/company");
 }
