@@ -19,6 +19,29 @@ export function middleware(request: NextRequest) {
             "max-age=31536000; includeSubDomains"
         );
     }
+    // Content Security Policy
+    // - default-src 'self': 同一オリジンのみ許可
+    // - script-src 'self' 'unsafe-inline' 'unsafe-eval': Next.js の動作に必要
+    // - style-src 'self' 'unsafe-inline': Tailwind CSS に必要
+    // - img-src 'self' data:: 画像は同一オリジン + data URI のみ
+    // - font-src 'self': フォントは同一オリジンのみ
+    // - connect-src 'self' *.supabase.co: Supabase API への接続を許可
+    // - frame-ancestors 'none': iFrame 埋め込みを完全禁止
+    const supabaseHost = process.env.NEXT_PUBLIC_SUPABASE_URL
+        ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).host
+        : "*.supabase.co";
+    response.headers.set(
+        "Content-Security-Policy",
+        [
+            "default-src 'self'",
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+            "style-src 'self' 'unsafe-inline'",
+            "img-src 'self' data:",
+            "font-src 'self'",
+            `connect-src 'self' https://${supabaseHost}`,
+            "frame-ancestors 'none'",
+        ].join("; ")
+    );
 
     return response;
 }
