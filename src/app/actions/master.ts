@@ -2,9 +2,11 @@
 
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
+import { createHash, timingSafeEqual } from "crypto";
 import { getSupabase } from "@/lib/supabase-server";
 import { setMasterSession, clearMasterSession, requireMasterAuth } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { writeAuditLog } from "@/lib/audit-log";
 
 export async function masterLogin(formData: FormData) {
     const headersList = await headers();
@@ -12,7 +14,7 @@ export async function masterLogin(formData: FormData) {
         ?? headersList.get("x-real-ip")
         ?? "unknown";
 
-    const { allowed } = checkRateLimit(`master-login:${ip}`, 10, 15 * 60 * 1000);
+    const { allowed } = await checkRateLimit(`master-login:${ip}`, 10, 15 * 60 * 1000);
     if (!allowed) {
         return { error: "ログイン試行が多すぎます。15分後に再試行してください" };
     }
@@ -24,10 +26,17 @@ export async function masterLogin(formData: FormData) {
         return { error: "サーバー設定エラー: MASTER_PASSWORD が設定されていません" };
     }
 
-    if (password !== masterPassword) {
+    // タイミング攻撃対策: SHA-256 ハッシュ化して固定長で比較
+    const inputHash = createHash("sha256").update(password ?? "").digest();
+    const masterHash = createHash("sha256").update(masterPassword).digest();
+    const isValid = timingSafeEqual(inputHash, masterHash);
+
+    if (!isValid) {
+        await writeAuditLog("master_login_failure", { ip });
         return { error: "パスワードが正しくありません" };
     }
 
+    await writeAuditLog("master_login_success", { ip });
     await setMasterSession();
     redirect("/master");
 }
@@ -63,6 +72,11 @@ export async function createCompany(formData: FormData) {
         return { error: "企業アカウントの作成に失敗しました" };
     }
 
+    await writeAuditLog("company_created", {
+        companyId: data.id,
+        details: { name, email },
+    });
+
     return { success: true, company: data };
 }
 
@@ -80,6 +94,7 @@ export async function getCompanies() {
                 responses (count)
             )
         `)
+        .is("deleted_at", null)
         .order("created_at", { ascending: false });
 
     if (error) {
@@ -94,6 +109,12 @@ export async function updateCompanyStatus(companyId: string, status: "active" | 
     await requireMasterAuth();
     const supabase = getSupabase();
 
+    const { data: current } = await supabase
+        .from("companies")
+        .select("status")
+        .eq("id", companyId)
+        .single();
+
     const { error } = await supabase
         .from("companies")
         .update({ status })
@@ -103,6 +124,11 @@ export async function updateCompanyStatus(companyId: string, status: "active" | 
         return { error: "ステータスの更新に失敗しました" };
     }
 
+    await writeAuditLog("company_status_changed", {
+        companyId,
+        details: { from: current?.status, to: status },
+    });
+
     return { success: true };
 }
 
@@ -110,15 +136,32 @@ export async function deleteCompany(companyId: string) {
     await requireMasterAuth();
     const supabase = getSupabase();
 
+    // 監査ログ用に会社情報を取得
+    const { data: company } = await supabase
+        .from("companies")
+        .select("name, email")
+        .eq("id", companyId)
+        .single();
+
+    // ソフトデリート（物理削除せずアーカイブ）
     const { error } = await supabase
         .from("companies")
-        .delete()
+        .update({ deleted_at: new Date().toISOString(), status: "inactive" })
         .eq("id", companyId);
 
     if (error) {
         console.error("Company deletion error:", error);
         return { error: "企業の削除に失敗しました" };
     }
+
+    // 該当企業の全セッションを無効化
+    await supabase.from("company_sessions").delete().eq("company_id", companyId);
+    await supabase.from("company_setup_sessions").delete().eq("company_id", companyId);
+
+    await writeAuditLog("company_soft_deleted", {
+        companyId,
+        details: { name: company?.name, email: company?.email },
+    });
 
     return { success: true };
 }

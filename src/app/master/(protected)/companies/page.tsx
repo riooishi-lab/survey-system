@@ -22,6 +22,7 @@ export default async function MasterCompaniesPage() {
                 responses (count)
             )
         `)
+        .is("deleted_at", null)
         .order("created_at", { ascending: false });
 
     const companyList = companies || [];

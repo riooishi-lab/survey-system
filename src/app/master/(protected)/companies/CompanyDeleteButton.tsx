@@ -18,7 +18,7 @@ export default function CompanyDeleteButton({
 
     const handleDelete = async () => {
         const confirmed = window.confirm(
-            `「${companyName}」を削除しますか？\n\nこの操作は取り消せません。関連するサーベイ・回答データもすべて削除されます。`
+            `「${companyName}」をアーカイブしますか？\n\nアカウントは無効化され、ログインできなくなります。\nデータはサーバーに保持されます（完全削除は管理者にご連絡ください）。`
         );
         if (!confirmed) return;
 

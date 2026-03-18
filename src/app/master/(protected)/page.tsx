@@ -15,6 +15,7 @@ export default async function MasterDashboard() {
         supabase
             .from("companies")
             .select("id, name, email, status, created_at, surveys(id, status, responses(count))")
+            .is("deleted_at", null)
             .order("created_at", { ascending: false })
             .limit(5),
         supabase.from("surveys").select("*", { count: "exact", head: true }).not("company_id", "is", null),
