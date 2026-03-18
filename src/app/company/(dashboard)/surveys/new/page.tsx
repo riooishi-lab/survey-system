@@ -30,18 +30,33 @@ const RESPONDENT_FIELD_LABELS: Record<keyof RespondentFields, string> = {
     department: "部署",
 };
 
-const DEFAULT_QUESTIONS = [
-    "配属された部署では、先輩後輩関係なくコミュニケーションが取れる環境ですか？",
-    "配属された部署では、より良い仕事をするために、前向きな意見が出る環境ですか？",
-    "配属された部署では、仕事に悩んだ際に相談できる上司やメンバーはいますか？",
-    "現在の仕事に対して、給与金額に対して納得感はありますか？",
-    "現在の仕事に対して、やりがいを感じられていますか？",
-];
-
 const GENRES = ["目標の魅力", "人材の魅力", "活動の魅力", "条件の魅力"] as const;
 type Genre = typeof GENRES[number];
 
 type Question = { id: string; text: string; type: "score" | "text" | "choice"; options?: string[]; genre?: Genre };
+
+const DEFAULT_QUESTIONS: { text: string; genre: Genre }[] = [
+    // A. 目標の魅力
+    { text: "会社のビジョンや理念に共感し、自分の仕事がその実現に役立っていると感じますか？", genre: "目標の魅力" },
+    { text: "会社は社会的に意義のある事業を行っており、将来にわたって安定・成長し続けると感じますか？", genre: "目標の魅力" },
+    { text: "経営層や組織の方針は明確で、日々の業務に納得感を持って取り組めていますか？", genre: "目標の魅力" },
+    { text: "この会社の一員であることを、家族や友人に自信を持って伝えられますか？", genre: "目標の魅力" },
+    // B. 活動の魅力
+    { text: "仕事の進め方について、自分の意見や工夫が反映される自由度・裁量があると感じますか？", genre: "活動の魅力" },
+    { text: "業務を通じて、専門知識・スキル・人間力が向上している実感がありますか？", genre: "活動の魅力" },
+    { text: "自分の仕事がお客様や社会に貢献・役立っているという手応えを感じますか？", genre: "活動の魅力" },
+    { text: "ミスや困難を乗り越えてでも取り組みたいと思えるやりがいや挑戦が、日々の仕事の中にありますか？", genre: "活動の魅力" },
+    // C. 人材の魅力
+    { text: "個人だけでなく、チーム全体で協力して目標を達成しようとする文化や雰囲気がありますか？", genre: "人材の魅力" },
+    { text: "困ったときやミスをしたとき、上司や先輩に相談しやすい雰囲気がありますか？", genre: "人材の魅力" },
+    { text: "お互いの立場や価値観を尊重し、自分らしく安心して働ける環境があると感じますか？", genre: "人材の魅力" },
+    { text: "職場に、仕事の進め方や人間性において「目標にしたい・手本にしたい」と思える人がいますか？", genre: "人材の魅力" },
+    // D. 条件の魅力
+    { text: "現在の給与水準や評価制度、各種手当などの報酬体系に満足・納得していますか？", genre: "条件の魅力" },
+    { text: "休暇の取りやすさや残業時間など、仕事とプライベートの両立ができる環境だと感じますか？", genre: "条件の魅力" },
+    { text: "オフィスや作業スペース、設備・備品など、働く環境面に満足していますか？", genre: "条件の魅力" },
+    { text: "研修制度や福利厚生など、長期的に安心して働き続けられる制度・サポートが整っていると感じますか？", genre: "条件の魅力" },
+];
 
 export default function NewCompanySurveyPage() {
     const router = useRouter();
@@ -84,7 +99,7 @@ export default function NewCompanySurveyPage() {
     };
 
     const [questions, setQuestions] = useState<Question[]>(
-        DEFAULT_QUESTIONS.map((text, i) => ({ id: String(i + 1), text, type: "score" }))
+        DEFAULT_QUESTIONS.map(({ text, genre }, i) => ({ id: String(i + 1), text, type: "score", genre }))
     );
 
     const addQuestion = () => {
