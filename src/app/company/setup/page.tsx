@@ -71,7 +71,7 @@ export default function CompanySetupPage() {
                                         id="password"
                                         name="password"
                                         type="password"
-                                        placeholder="8文字以上で設定してください"
+                                        placeholder="英字と数字を含む8文字以上"
                                         className="pl-9 bg-indigo-900/50 border-indigo-700 text-white placeholder:text-indigo-500 focus-visible:ring-indigo-500"
                                         required
                                         minLength={8}

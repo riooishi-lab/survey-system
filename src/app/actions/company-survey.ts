@@ -82,7 +82,7 @@ export async function companyPasswordLogin(formData: FormData) {
         ?? headersList.get("x-real-ip")
         ?? "unknown";
 
-    const loginId = (formData.get("login_id") as string)?.trim();
+    const loginId = (formData.get("login_id") as string)?.trim().toLowerCase();
     const { allowed } = checkRateLimit(`company-login:${ip}:${loginId ?? ""}`, 10, 15 * 60 * 1000);
     if (!allowed) {
         return { error: "ログイン試行が多すぎます。15分後に再試行してください" };
@@ -129,7 +129,7 @@ export async function setupCompanyCredentials(formData: FormData) {
         return { error: "セッションが切れました。再度トークンでログインしてください" };
     }
 
-    const loginId = (formData.get("login_id") as string)?.trim();
+    const loginId = (formData.get("login_id") as string)?.trim().toLowerCase();
     const password = (formData.get("password") as string);
     const passwordConfirm = (formData.get("password_confirm") as string);
 
@@ -144,6 +144,10 @@ export async function setupCompanyCredentials(formData: FormData) {
 
     if (!password || password.length < 8) {
         return { error: "パスワードは8文字以上で入力してください" };
+    }
+
+    if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
+        return { error: "パスワードは英字と数字を両方含めてください" };
     }
 
     if (password !== passwordConfirm) {
