@@ -78,6 +78,7 @@ export default async function CompanyResultsPage({ params }: { params: Promise<{
                     totalResponses={totalResponses}
                     overallAvg={overallAvg}
                     targetRespondents={survey.target_respondents ?? null}
+                    surveyId={id}
                 />
             )}
         </div>

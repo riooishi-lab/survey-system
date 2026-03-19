@@ -3,7 +3,7 @@ import { requireCompanyAuth } from "@/lib/auth";
 import { getCompanySurveys, getCompanyInfo } from "@/app/actions/company-survey";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { PlusCircle, FileText, Users, Link2, BarChart2 } from "lucide-react";
+import { PlusCircle, FileText, Users, Link2, BarChart2, TrendingUp } from "lucide-react";
 import SurveyLinkButton from "./SurveyLinkButton";
 import SurveyDeleteButton from "./SurveyDeleteButton";
 import SurveyCopyButton from "./SurveyCopyButton";
@@ -39,12 +39,20 @@ export default async function CompanyDashboard() {
                     </h2>
                     <p className="text-slate-500 mt-1">サーベイの管理と分析</p>
                 </div>
-                <Link href="/company/surveys/new">
-                    <Button className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2">
-                        <PlusCircle size={16} />
-                        新規サーベイ作成
-                    </Button>
-                </Link>
+                <div className="flex items-center gap-2">
+                    <Link href="/company/trends">
+                        <Button variant="outline" className="gap-2 text-indigo-600 border-indigo-200 hover:bg-indigo-50">
+                            <TrendingUp size={16} />
+                            トレンド分析
+                        </Button>
+                    </Link>
+                    <Link href="/company/surveys/new">
+                        <Button className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2">
+                            <PlusCircle size={16} />
+                            新規サーベイ作成
+                        </Button>
+                    </Link>
+                </div>
             </div>
 
             {/* Stats */}

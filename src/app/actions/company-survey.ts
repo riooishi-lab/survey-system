@@ -14,7 +14,7 @@ import {
     clearCompanySetupSession,
 } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
-import { sendPasswordResetEmail } from "@/lib/email";
+import { sendPasswordResetEmail, sendSurveyReminderEmail } from "@/lib/email";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { writeAuditLog } from "@/lib/audit-log";
 
@@ -741,4 +741,246 @@ export async function getCompanySurveyResults(surveyId: string) {
     }
 
     return { data: survey };
+}
+
+export async function sendSurveyReminder(surveyId: string, emails: string[]) {
+    const companyId = await requireCompanyAuth();
+    const supabase = getSupabase();
+
+    const { data: survey } = await supabase
+        .from("surveys")
+        .select("id, title, status, deadline, survey_links(token, is_active, expires_at)")
+        .eq("id", surveyId)
+        .eq("company_id", companyId)
+        .single();
+
+    if (!survey) return { error: "サーベイが見つかりません" };
+    if (survey.status !== "active") return { error: "公開中のサーベイのみリマインドを送信できます" };
+
+    const activeLink = (survey.survey_links as any[])?.find(
+        (l: any) => l.is_active && (!l.expires_at || new Date(l.expires_at) > new Date())
+    );
+
+    if (!activeLink) return { error: "有効なサーベイリンクがありません。先にリンクを発行してください" };
+
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+    const surveyUrl = `${baseUrl}/survey/${activeLink.token}`;
+    const deadlineStr = survey.deadline
+        ? new Date(survey.deadline).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" })
+        : undefined;
+
+    let sentCount = 0;
+    const errors: string[] = [];
+
+    for (const email of emails) {
+        try {
+            await sendSurveyReminderEmail(email.trim(), survey.title, surveyUrl, deadlineStr);
+            sentCount++;
+        } catch (err) {
+            console.error(`Reminder email failed for ${email}:`, err);
+            errors.push(email);
+        }
+    }
+
+    // 送信記録を保存
+    await supabase.from("survey_reminders").insert({
+        survey_id: surveyId,
+        recipient_count: sentCount,
+        sent_by: companyId,
+    });
+
+    if (errors.length > 0) {
+        return { success: true, sentCount, errors };
+    }
+
+    return { success: true, sentCount };
+}
+
+export async function getCompanyTrendData() {
+    const companyId = await requireCompanyAuth();
+    const supabase = getSupabase();
+
+    const { data: surveys, error } = await supabase
+        .from("surveys")
+        .select(`
+            id, title, status, created_at, deadline, target_respondents,
+            questions (id, text, type, genre, order_index),
+            responses (
+                id, created_at,
+                answers (question_id, score, text_value)
+            )
+        `)
+        .eq("company_id", companyId)
+        .in("status", ["active", "closed"])
+        .order("created_at", { ascending: true });
+
+    if (error) {
+        console.error("Trend data error:", error);
+        return { error: "トレンドデータの取得に失敗しました" };
+    }
+
+    // 各サーベイのジャンル別平均スコアと全体平均を計算
+    const trendData = (surveys || []).map((survey: any) => {
+        const responses = survey.responses || [];
+        const questions = survey.questions || [];
+        const scoreQuestions = questions.filter((q: any) => q.type === "score");
+
+        const genreAvgs: Record<string, number> = {};
+        const genres = ["目標の魅力", "人材の魅力", "活動の魅力", "条件の魅力"];
+        for (const genre of genres) {
+            const genreQs = scoreQuestions.filter((q: any) => q.genre === genre);
+            if (genreQs.length === 0) continue;
+            const scores = responses.flatMap((r: any) =>
+                (r.answers || [])
+                    .filter((a: any) => genreQs.some((q: any) => q.id === a.question_id) && a.score != null)
+                    .map((a: any) => a.score)
+            );
+            if (scores.length > 0) {
+                genreAvgs[genre] = scores.reduce((s: number, v: number) => s + v, 0) / scores.length;
+            }
+        }
+
+        const allScores = responses.flatMap((r: any) =>
+            (r.answers || [])
+                .filter((a: any) => scoreQuestions.some((q: any) => q.id === a.question_id) && a.score != null)
+                .map((a: any) => a.score)
+        );
+        const overallAvg = allScores.length > 0 ? allScores.reduce((s: number, v: number) => s + v, 0) / allScores.length : 0;
+
+        return {
+            id: survey.id,
+            title: survey.title,
+            status: survey.status,
+            createdAt: survey.created_at,
+            deadline: survey.deadline,
+            responseCount: responses.length,
+            targetRespondents: survey.target_respondents,
+            overallAvg,
+            genreAvgs,
+        };
+    });
+
+    return { data: trendData };
+}
+
+// === ユーザー管理（閲覧権限の階層化） ===
+
+export async function getCompanyUsers() {
+    const companyId = await requireCompanyAuth();
+    const supabase = getSupabase();
+
+    const { data, error } = await supabase
+        .from("company_users")
+        .select("*")
+        .eq("company_id", companyId)
+        .order("created_at", { ascending: true });
+
+    if (error) return { error: "ユーザー一覧の取得に失敗しました" };
+    return { data: data || [] };
+}
+
+export async function createCompanyUser(userData: {
+    name: string;
+    email: string;
+    role: "admin" | "manager" | "viewer";
+    department?: string;
+}) {
+    const companyId = await requireCompanyAuth();
+    const supabase = getSupabase();
+
+    if (!userData.name.trim() || !userData.email.trim()) {
+        return { error: "名前とメールアドレスは必須です" };
+    }
+
+    // 重複チェック
+    const { data: existing } = await supabase
+        .from("company_users")
+        .select("id")
+        .eq("company_id", companyId)
+        .eq("email", userData.email.toLowerCase().trim())
+        .single();
+
+    if (existing) {
+        return { error: "このメールアドレスはすでに登録されています" };
+    }
+
+    const { data, error } = await supabase
+        .from("company_users")
+        .insert({
+            company_id: companyId,
+            name: userData.name.trim(),
+            email: userData.email.toLowerCase().trim(),
+            role: userData.role,
+            department: userData.department?.trim() || null,
+        })
+        .select()
+        .single();
+
+    if (error) {
+        console.error("Create company user error:", error);
+        return { error: "ユーザーの作成に失敗しました" };
+    }
+
+    revalidatePath("/company/users");
+    return { success: true, data };
+}
+
+export async function updateCompanyUser(userId: string, userData: {
+    name?: string;
+    role?: "admin" | "manager" | "viewer";
+    department?: string;
+    is_active?: boolean;
+}) {
+    const companyId = await requireCompanyAuth();
+    const supabase = getSupabase();
+
+    // 所属確認
+    const { data: user } = await supabase
+        .from("company_users")
+        .select("id")
+        .eq("id", userId)
+        .eq("company_id", companyId)
+        .single();
+
+    if (!user) return { error: "ユーザーが見つかりません" };
+
+    const updateData: Record<string, any> = {};
+    if (userData.name !== undefined) updateData.name = userData.name.trim();
+    if (userData.role !== undefined) updateData.role = userData.role;
+    if (userData.department !== undefined) updateData.department = userData.department.trim() || null;
+    if (userData.is_active !== undefined) updateData.is_active = userData.is_active;
+
+    const { error } = await supabase
+        .from("company_users")
+        .update(updateData)
+        .eq("id", userId);
+
+    if (error) return { error: "ユーザーの更新に失敗しました" };
+
+    revalidatePath("/company/users");
+    return { success: true };
+}
+
+export async function deleteCompanyUser(userId: string) {
+    const companyId = await requireCompanyAuth();
+    const supabase = getSupabase();
+
+    const { data: user } = await supabase
+        .from("company_users")
+        .select("id")
+        .eq("id", userId)
+        .eq("company_id", companyId)
+        .single();
+
+    if (!user) return { error: "ユーザーが見つかりません" };
+
+    const { error } = await supabase
+        .from("company_users")
+        .delete()
+        .eq("id", userId);
+
+    if (error) return { error: "ユーザーの削除に失敗しました" };
+
+    revalidatePath("/company/users");
+    return { success: true };
 }

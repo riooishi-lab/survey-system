@@ -48,6 +48,8 @@ export default function SurveyClientForm({
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [answers, setAnswers] = useState<Record<string, string>>({});
     const [errors, setErrors] = useState<Record<string, boolean>>({});
+    const [consentGiven, setConsentGiven] = useState(false);
+    const [consentError, setConsentError] = useState(false);
 
     // 属性フィールドの state
     const [respondentName, setRespondentName] = useState("");
@@ -64,6 +66,13 @@ export default function SurveyClientForm({
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
+
+        // 同意チェック
+        if (!consentGiven) {
+            setConsentError(true);
+            document.getElementById("consent-section")?.scrollIntoView({ behavior: "smooth", block: "center" });
+            return;
+        }
 
         // Validate all questions answered
         const newErrors: Record<string, boolean> = {};
@@ -116,7 +125,7 @@ export default function SurveyClientForm({
                 department: respondentFields.department ? respondentDepartment : undefined,
             };
 
-            const result = await submitSurveyResponse(surveyId, responses, respondentData);
+            const result = await submitSurveyResponse(surveyId, responses, respondentData, consentGiven);
             if (result.error) {
                 alert("エラーが発生しました: " + result.error);
             } else {
@@ -164,6 +173,36 @@ export default function SurveyClientForm({
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
+                    {/* プライバシーポリシー・同意 */}
+                    <div id="consent-section" className={`bg-white rounded-xl shadow-sm border px-6 py-6 ${consentError ? "border-red-400" : "border-slate-200"}`}>
+                        <p className="text-base font-semibold text-slate-900 mb-3">回答にあたっての同意事項</p>
+                        <div className="bg-slate-50 rounded-lg px-4 py-3 text-sm text-slate-600 space-y-2 mb-4">
+                            <p>本サーベイの回答データは、以下の目的で利用されます。</p>
+                            <ul className="list-disc list-inside space-y-1 text-xs text-slate-500">
+                                <li>組織改善のための分析・レポート作成</li>
+                                <li>エンゲージメント向上施策の検討</li>
+                                {isAnonymous && <li>回答は匿名で処理され、個人が特定されることはありません</li>}
+                                {!isAnonymous && <li>入力された属性情報は、統計的な分析目的でのみ使用されます</li>}
+                            </ul>
+                            <p className="text-xs text-slate-500">回答データは適切に管理され、上記目的以外には使用されません。</p>
+                        </div>
+                        <label className="flex items-start gap-3 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={consentGiven}
+                                onChange={(e) => {
+                                    setConsentGiven(e.target.checked);
+                                    if (e.target.checked) setConsentError(false);
+                                }}
+                                className="w-4 h-4 mt-0.5 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                            />
+                            <span className="text-sm text-slate-700">上記の内容に同意して回答を開始します</span>
+                        </label>
+                        {consentError && (
+                            <p className="text-red-500 text-xs mt-2">回答を送信するには同意が必要です</p>
+                        )}
+                    </div>
+
                     {/* 属性フォーム（非匿名の場合のみ表示） */}
                     {!isAnonymous && (
                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 px-6 py-6">
