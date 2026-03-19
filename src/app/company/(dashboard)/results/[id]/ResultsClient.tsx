@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Users, TrendingUp, Calendar, BarChart2, List, Filter, X, Tag } from "lucide-react";
+import { Users, TrendingUp, Calendar, BarChart2, List, Filter, X, Tag, Download } from "lucide-react";
 
 const GENRES = ["目標の魅力", "人材の魅力", "活動の魅力", "条件の魅力"] as const;
 type Genre = typeof GENRES[number] | "";
@@ -85,7 +85,59 @@ type Props = {
     questionStats: any[];
     totalResponses: number;
     overallAvg: number;
+    targetRespondents?: number | null;
 };
+
+function downloadCSV(survey: any) {
+    const responses = survey.responses || [];
+    const questions = (survey.questions || []).slice().sort((a: any, b: any) => a.order_index - b.order_index);
+
+    const fields = survey.respondent_fields ?? {};
+    const attrHeaders: string[] = [];
+    if (fields.name) attrHeaders.push("名前");
+    if (fields.age) attrHeaders.push("年齢");
+    if (fields.gender) attrHeaders.push("性別");
+    if (fields.hire_type) attrHeaders.push("入社区分");
+    if (fields.join_year) attrHeaders.push("入社年度");
+    if (fields.department) attrHeaders.push("部署");
+
+    const questionHeaders = questions.map((_: any, i: number) => `Q${i + 1}`);
+    const header = ["回答番号", "回答日時", ...attrHeaders, ...questionHeaders];
+
+    const rows = responses.map((r: any, idx: number) => {
+        const attrValues: string[] = [];
+        if (fields.name) attrValues.push(r.respondent_name ?? "");
+        if (fields.age) attrValues.push(r.respondent_age != null ? String(r.respondent_age) : "");
+        if (fields.gender) attrValues.push(GENDER_LABELS[r.respondent_gender] ?? r.respondent_gender ?? "");
+        if (fields.hire_type) attrValues.push(HIRE_TYPE_LABELS[r.respondent_hire_type] ?? r.respondent_hire_type ?? "");
+        if (fields.join_year) attrValues.push(r.respondent_join_year != null ? String(r.respondent_join_year) : "");
+        if (fields.department) attrValues.push(r.respondent_department ?? "");
+
+        const answerValues = questions.map((q: any) => {
+            const ans = (r.answers || []).find((a: any) => a.question_id === q.id);
+            if (!ans) return "";
+            if (q.type === "score") return ans.score != null ? String(ans.score) : "";
+            return ans.text_value ?? "";
+        });
+
+        const dt = new Date(r.created_at).toLocaleString("ja-JP", {
+            year: "numeric", month: "2-digit", day: "2-digit",
+            hour: "2-digit", minute: "2-digit",
+        });
+        return [String(idx + 1), dt, ...attrValues, ...answerValues];
+    });
+
+    const escape = (v: string) => `"${v.replace(/"/g, '""')}"`;
+    const csv = [header, ...rows].map((row) => row.map(escape).join(",")).join("\r\n");
+    const bom = "\uFEFF";
+    const blob = new Blob([bom + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${survey.title}_回答結果.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
 
 type FilterState = {
     department: string;
@@ -129,7 +181,7 @@ function computeStats(responses: any[], questions: any[]) {
     });
 }
 
-export default function ResultsClient({ survey, questionStats, totalResponses, overallAvg }: Props) {
+export default function ResultsClient({ survey, questionStats, totalResponses, overallAvg, targetRespondents }: Props) {
     const [view, setView] = useState<"aggregate" | "list">("aggregate");
     const [filters, setFilters] = useState<FilterState>({
         department: "", gender: "", hire_type: "", join_year: "", age: ""
@@ -235,7 +287,7 @@ export default function ResultsClient({ survey, questionStats, totalResponses, o
     return (
         <div className="space-y-6">
             {/* Summary Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className={`grid grid-cols-1 gap-4 ${targetRespondents ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
                 <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
                     <div className="flex items-center gap-3 mb-2">
                         <div className="w-9 h-9 rounded-lg bg-violet-50 flex items-center justify-center">
@@ -280,6 +332,21 @@ export default function ResultsClient({ survey, questionStats, totalResponses, o
                         })}
                     </p>
                 </div>
+                {targetRespondents != null && targetRespondents > 0 && (
+                    <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center">
+                                <Users className="w-5 h-5 text-emerald-600" />
+                            </div>
+                            <span className="text-sm text-slate-500">回答率</span>
+                        </div>
+                        <p className="text-3xl font-bold text-slate-900">
+                            {Math.round((totalResponses / targetRespondents) * 100)}
+                            <span className="text-base text-slate-400 font-normal">%</span>
+                        </p>
+                        <p className="text-xs text-slate-400 mt-1">{totalResponses} / {targetRespondents} 人</p>
+                    </div>
+                )}
             </div>
 
             {/* View Toggle + Filter Button */}
@@ -325,24 +392,33 @@ export default function ResultsClient({ survey, questionStats, totalResponses, o
                     ))}
                 </div>
 
-                {hasAnyAttrData && (
+                <div className="ml-auto flex items-center gap-2">
+                    {hasAnyAttrData && (
+                        <button
+                            onClick={() => setShowFilter(!showFilter)}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                showFilter || isFiltered
+                                    ? "bg-amber-50 border border-amber-300 text-amber-700"
+                                    : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                            }`}
+                        >
+                            <Filter className="w-4 h-4" />
+                            フィルター
+                            {activeFilterCount > 0 && (
+                                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-500 text-white text-xs font-bold">
+                                    {activeFilterCount}
+                                </span>
+                            )}
+                        </button>
+                    )}
                     <button
-                        onClick={() => setShowFilter(!showFilter)}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ml-auto ${
-                            showFilter || isFiltered
-                                ? "bg-amber-50 border border-amber-300 text-amber-700"
-                                : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
-                        }`}
+                        onClick={() => downloadCSV(survey)}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
                     >
-                        <Filter className="w-4 h-4" />
-                        フィルター
-                        {activeFilterCount > 0 && (
-                            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-500 text-white text-xs font-bold">
-                                {activeFilterCount}
-                            </span>
-                        )}
+                        <Download className="w-4 h-4" />
+                        CSVダウンロード
                     </button>
-                )}
+                </div>
             </div>
 
             {/* Filter Panel */}

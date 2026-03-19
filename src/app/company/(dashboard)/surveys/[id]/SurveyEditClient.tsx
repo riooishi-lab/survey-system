@@ -76,6 +76,9 @@ export default function SurveyEditClient({ survey, departmentOptions = [] }: { s
 
     const [title, setTitle] = useState(survey.title);
     const [description, setDescription] = useState(survey.description || "");
+    const [targetRespondents, setTargetRespondents] = useState<string>(
+        survey.target_respondents != null ? String(survey.target_respondents) : ""
+    );
     const [deadline, setDeadline] = useState(() => {
         if (!survey.deadline) return "";
         const d = new Date(survey.deadline);
@@ -165,6 +168,7 @@ export default function SurveyEditClient({ survey, departmentOptions = [] }: { s
             status: newStatus || status,
             is_anonymous: isAnonymous,
             respondent_fields: fields,
+            target_respondents: targetRespondents ? parseInt(targetRespondents, 10) : null,
             questions: validQuestions.map((q, i) => ({
                 id: q.id && q.id.length > 13 ? q.id : undefined,
                 text: q.text,
@@ -213,6 +217,7 @@ export default function SurveyEditClient({ survey, departmentOptions = [] }: { s
             title, description, deadline, status: "active",
             is_anonymous: isAnonymous,
             respondent_fields: fields,
+            target_respondents: targetRespondents ? parseInt(targetRespondents, 10) : null,
             questions: validQuestions.map((q, i) => ({
                 id: q.id && q.id.length > 13 ? q.id : undefined,
                 text: q.text, type: q.type, order_index: i, options: q.options, genre: q.genre,
@@ -334,6 +339,17 @@ export default function SurveyEditClient({ survey, departmentOptions = [] }: { s
                                     value={deadline}
                                     onChange={(e) => setDeadline(e.target.value)}
                                 />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>想定回答者数</Label>
+                                <Input
+                                    type="number"
+                                    min="1"
+                                    placeholder="例: 50"
+                                    value={targetRespondents}
+                                    onChange={(e) => setTargetRespondents(e.target.value)}
+                                />
+                                <p className="text-xs text-slate-400">設定すると結果画面に回答率が表示されます</p>
                             </div>
                             <div className="flex items-center gap-2 pt-1">
                                 <span className="text-sm text-slate-500">ステータス:</span>
