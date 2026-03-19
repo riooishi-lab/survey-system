@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireCompanyAuth } from "@/lib/auth";
 import { getSupabase } from "@/lib/supabase-server";
 import { companyLogout } from "@/app/actions/company-survey";
-import { LayoutDashboard, FileText, LogOut, Building2, Settings } from "lucide-react";
+import { LayoutDashboard, FileText, LogOut, Building2, Settings, Users, TrendingUp } from "lucide-react";
 
 export default async function CompanyLayout({ children }: { children: React.ReactNode }) {
     const companyId = await requireCompanyAuth();
@@ -44,6 +44,20 @@ export default async function CompanyLayout({ children }: { children: React.Reac
                     >
                         <FileText size={18} />
                         サーベイ作成
+                    </Link>
+                    <Link
+                        href="/company/trends"
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-indigo-900 hover:text-white transition-colors"
+                    >
+                        <TrendingUp size={18} />
+                        トレンド分析
+                    </Link>
+                    <Link
+                        href="/company/users"
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-indigo-900 hover:text-white transition-colors"
+                    >
+                        <Users size={18} />
+                        ユーザー管理
                     </Link>
                     <Link
                         href="/company/settings"

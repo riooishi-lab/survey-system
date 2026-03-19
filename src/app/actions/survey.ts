@@ -2,6 +2,7 @@
 
 import { getSupabase } from "@/lib/supabase-server";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 
 export async function getSurvey(id: string) {
     const supabase = getSupabase();
@@ -161,6 +162,12 @@ export async function updateSurvey(id: string, data: {
     return { success: true, surveyId: id };
 }
 
+export async function checkSurveyAlreadyAnswered(surveyId: string): Promise<boolean> {
+    const cookieStore = await cookies();
+    const cookieKey = `survey_answered_${surveyId}`;
+    return cookieStore.get(cookieKey)?.value === "1";
+}
+
 export async function submitSurveyResponse(
     surveyId: string,
     responses: Record<string, { type: "score" | "text" | "choice"; value: string }>,
@@ -171,9 +178,17 @@ export async function submitSurveyResponse(
         join_year?: number;
         hire_type?: string;
         department?: string;
-    }
+    },
+    consentGiven?: boolean
 ) {
     const supabase = getSupabase();
+    const cookieStore = await cookies();
+
+    // 重複回答チェック（Cookieベース）
+    const cookieKey = `survey_answered_${surveyId}`;
+    if (cookieStore.get(cookieKey)?.value === "1") {
+        return { error: "このサーベイにはすでに回答済みです" };
+    }
 
     const { data: response, error: responseError } = await supabase
         .from("responses")
@@ -209,6 +224,23 @@ export async function submitSurveyResponse(
         console.error("Answers creation error:", answersError);
         return { error: "Failed to record answers" };
     }
+
+    // 同意記録の保存
+    if (consentGiven) {
+        await supabase.from("survey_consents").insert({
+            survey_id: surveyId,
+            response_id: response.id,
+        });
+    }
+
+    // 重複防止Cookie設定（90日間有効）
+    cookieStore.set(cookieKey, "1", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 90 * 24 * 60 * 60,
+        path: "/",
+    });
 
     return { success: true };
 }

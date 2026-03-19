@@ -2,10 +2,14 @@
 
 import { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Users, TrendingUp, Calendar, BarChart2, List, Filter, X, Tag, Download } from "lucide-react";
+import { Users, TrendingUp, Calendar, BarChart2, List, Filter, X, Tag, Download, Mail } from "lucide-react";
+import { sendSurveyReminder } from "@/app/actions/company-survey";
 
 const GENRES = ["目標の魅力", "人材の魅力", "活動の魅力", "条件の魅力"] as const;
 type Genre = typeof GENRES[number] | "";
+
+// 少人数セグメントの非表示しきい値（個人特定防止）
+const MIN_SEGMENT_SIZE = 5;
 
 // SVG Donut Chart
 function DonutChart({ counts }: { counts: number[] }) {
@@ -86,6 +90,7 @@ type Props = {
     totalResponses: number;
     overallAvg: number;
     targetRespondents?: number | null;
+    surveyId: string;
 };
 
 function downloadCSV(survey: any) {
@@ -181,7 +186,7 @@ function computeStats(responses: any[], questions: any[]) {
     });
 }
 
-export default function ResultsClient({ survey, questionStats, totalResponses, overallAvg, targetRespondents }: Props) {
+export default function ResultsClient({ survey, questionStats, totalResponses, overallAvg, targetRespondents, surveyId }: Props) {
     const [view, setView] = useState<"aggregate" | "list">("aggregate");
     const [filters, setFilters] = useState<FilterState>({
         department: "", gender: "", hire_type: "", join_year: "", age: ""
@@ -189,30 +194,41 @@ export default function ResultsClient({ survey, questionStats, totalResponses, o
     const [showFilter, setShowFilter] = useState(false);
     const [genreFilter, setGenreFilter] = useState<Genre>("");
 
+    // リマインドメール
+    const [showReminder, setShowReminder] = useState(false);
+    const [reminderEmails, setReminderEmails] = useState("");
+    const [reminderSending, setReminderSending] = useState(false);
+    const [reminderResult, setReminderResult] = useState<{ sentCount?: number; errors?: string[] } | null>(null);
+
     const responses = survey.responses || [];
     const questions = survey.questions || [];
 
-    // Unique values for filter dropdowns
-    const uniqueDepts = useMemo(() =>
-        [...new Set<string>(responses.map((r: any) => r.respondent_department).filter(Boolean))].sort(),
-        [responses]
-    );
-    const uniqueGenders = useMemo(() =>
-        [...new Set<string>(responses.map((r: any) => r.respondent_gender).filter(Boolean))],
-        [responses]
-    );
-    const uniqueHireTypes = useMemo(() =>
-        [...new Set<string>(responses.map((r: any) => r.respondent_hire_type).filter(Boolean))],
-        [responses]
-    );
-    const uniqueJoinYears = useMemo(() =>
-        [...new Set<number>(responses.map((r: any) => r.respondent_join_year).filter(Boolean))].sort((a, b) => b - a),
-        [responses]
-    );
-    const uniqueAges = useMemo(() =>
-        [...new Set<number>(responses.map((r: any) => r.respondent_age).filter(Boolean))].sort((a, b) => a - b),
-        [responses]
-    );
+    // Unique values for filter dropdowns (少人数セグメントを除外)
+    const uniqueDepts = useMemo(() => {
+        const counts: Record<string, number> = {};
+        for (const r of responses) { if (r.respondent_department) counts[r.respondent_department] = (counts[r.respondent_department] ?? 0) + 1; }
+        return Object.entries(counts).filter(([, c]) => c >= MIN_SEGMENT_SIZE).map(([v]) => v).sort();
+    }, [responses]);
+    const uniqueGenders = useMemo(() => {
+        const counts: Record<string, number> = {};
+        for (const r of responses) { if (r.respondent_gender) counts[r.respondent_gender] = (counts[r.respondent_gender] ?? 0) + 1; }
+        return Object.entries(counts).filter(([, c]) => c >= MIN_SEGMENT_SIZE).map(([v]) => v);
+    }, [responses]);
+    const uniqueHireTypes = useMemo(() => {
+        const counts: Record<string, number> = {};
+        for (const r of responses) { if (r.respondent_hire_type) counts[r.respondent_hire_type] = (counts[r.respondent_hire_type] ?? 0) + 1; }
+        return Object.entries(counts).filter(([, c]) => c >= MIN_SEGMENT_SIZE).map(([v]) => v);
+    }, [responses]);
+    const uniqueJoinYears = useMemo(() => {
+        const counts: Record<string, number> = {};
+        for (const r of responses) { if (r.respondent_join_year) counts[String(r.respondent_join_year)] = (counts[String(r.respondent_join_year)] ?? 0) + 1; }
+        return Object.entries(counts).filter(([, c]) => c >= MIN_SEGMENT_SIZE).map(([v]) => Number(v)).sort((a, b) => b - a);
+    }, [responses]);
+    const uniqueAges = useMemo(() => {
+        const counts: Record<string, number> = {};
+        for (const r of responses) { if (r.respondent_age) counts[String(r.respondent_age)] = (counts[String(r.respondent_age)] ?? 0) + 1; }
+        return Object.entries(counts).filter(([, c]) => c >= MIN_SEGMENT_SIZE).map(([v]) => Number(v)).sort((a, b) => a - b);
+    }, [responses]);
 
     const hasAnyAttrData = uniqueDepts.length > 0 || uniqueGenders.length > 0 || uniqueHireTypes.length > 0 || uniqueJoinYears.length > 0 || uniqueAges.length > 0;
 
@@ -273,11 +289,28 @@ export default function ResultsClient({ survey, questionStats, totalResponses, o
         return Object.entries(counts).sort((a, b) => b[1] - a[1]);
     }
 
-    const deptCounts = countBy(filteredResponses, "respondent_department");
-    const genderCounts = countBy(filteredResponses, "respondent_gender", GENDER_LABELS);
-    const hireTypeCounts = countBy(filteredResponses, "respondent_hire_type", HIRE_TYPE_LABELS);
-    const joinYearCounts = countBy(filteredResponses, "respondent_join_year");
-    const ageCounts = countBy(filteredResponses, "respondent_age");
+    const deptCountsRaw = countBy(filteredResponses, "respondent_department");
+    const genderCountsRaw = countBy(filteredResponses, "respondent_gender", GENDER_LABELS);
+    const hireTypeCountsRaw = countBy(filteredResponses, "respondent_hire_type", HIRE_TYPE_LABELS);
+    const joinYearCountsRaw = countBy(filteredResponses, "respondent_join_year");
+    const ageCountsRaw = countBy(filteredResponses, "respondent_age");
+
+    // 少人数セグメントを非表示にする（個人特定防止）
+    const filterSmallSegments = (counts: [string, number][]) =>
+        counts.filter(([, count]) => count >= MIN_SEGMENT_SIZE);
+    const deptCounts = filterSmallSegments(deptCountsRaw);
+    const genderCounts = filterSmallSegments(genderCountsRaw);
+    const hireTypeCounts = filterSmallSegments(hireTypeCountsRaw);
+    const joinYearCounts = filterSmallSegments(joinYearCountsRaw);
+    const ageCounts = filterSmallSegments(ageCountsRaw);
+
+    const hiddenSegmentCount =
+        (deptCountsRaw.length - deptCounts.length) +
+        (genderCountsRaw.length - genderCounts.length) +
+        (hireTypeCountsRaw.length - hireTypeCounts.length) +
+        (joinYearCountsRaw.length - joinYearCounts.length) +
+        (ageCountsRaw.length - ageCounts.length);
+
     const hasAttrData = deptCounts.length > 0 || genderCounts.length > 0 || hireTypeCounts.length > 0 || joinYearCounts.length > 0 || ageCounts.length > 0;
 
     const clearFilters = () => setFilters({ department: "", gender: "", hire_type: "", join_year: "", age: "" });
@@ -332,21 +365,32 @@ export default function ResultsClient({ survey, questionStats, totalResponses, o
                         })}
                     </p>
                 </div>
-                {targetRespondents != null && targetRespondents > 0 && (
-                    <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center">
-                                <Users className="w-5 h-5 text-emerald-600" />
+                {targetRespondents != null && targetRespondents > 0 && (() => {
+                    const responseRate = Math.round((totalResponses / targetRespondents) * 100);
+                    const isLowRate = responseRate < 50;
+                    const isVeryLowRate = responseRate < 30;
+                    return (
+                        <div className={`bg-white rounded-xl border p-5 shadow-sm ${isVeryLowRate ? "border-red-300" : isLowRate ? "border-amber-300" : "border-slate-200"}`}>
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${isVeryLowRate ? "bg-red-50" : isLowRate ? "bg-amber-50" : "bg-emerald-50"}`}>
+                                    <Users className={`w-5 h-5 ${isVeryLowRate ? "text-red-600" : isLowRate ? "text-amber-600" : "text-emerald-600"}`} />
+                                </div>
+                                <span className="text-sm text-slate-500">回答率</span>
                             </div>
-                            <span className="text-sm text-slate-500">回答率</span>
+                            <p className={`text-3xl font-bold ${isVeryLowRate ? "text-red-600" : isLowRate ? "text-amber-600" : "text-slate-900"}`}>
+                                {responseRate}
+                                <span className="text-base text-slate-400 font-normal">%</span>
+                            </p>
+                            <p className="text-xs text-slate-400 mt-1">{totalResponses} / {targetRespondents} 人</p>
+                            {isVeryLowRate && (
+                                <p className="text-xs text-red-600 mt-2 font-medium">回答率が低いため、結果の信頼性が限定的です</p>
+                            )}
+                            {isLowRate && !isVeryLowRate && (
+                                <p className="text-xs text-amber-600 mt-2 font-medium">回答率が50%未満です。リマインドの送信を検討してください</p>
+                            )}
                         </div>
-                        <p className="text-3xl font-bold text-slate-900">
-                            {Math.round((totalResponses / targetRespondents) * 100)}
-                            <span className="text-base text-slate-400 font-normal">%</span>
-                        </p>
-                        <p className="text-xs text-slate-400 mt-1">{totalResponses} / {targetRespondents} 人</p>
-                    </div>
-                )}
+                    );
+                })()}
             </div>
 
             {/* View Toggle + Filter Button */}
@@ -412,6 +456,17 @@ export default function ResultsClient({ survey, questionStats, totalResponses, o
                         </button>
                     )}
                     <button
+                        onClick={() => setShowReminder(!showReminder)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                            showReminder
+                                ? "bg-indigo-50 border border-indigo-300 text-indigo-700"
+                                : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                        }`}
+                    >
+                        <Mail className="w-4 h-4" />
+                        リマインド送信
+                    </button>
+                    <button
                         onClick={() => downloadCSV(survey)}
                         className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
                     >
@@ -420,6 +475,54 @@ export default function ResultsClient({ survey, questionStats, totalResponses, o
                     </button>
                 </div>
             </div>
+
+            {/* Reminder Panel */}
+            {showReminder && (
+                <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 space-y-3">
+                    <p className="text-sm font-medium text-indigo-800">リマインドメール送信</p>
+                    <p className="text-xs text-indigo-600">未回答者のメールアドレスを入力してください（改行またはカンマ区切り）</p>
+                    <textarea
+                        value={reminderEmails}
+                        onChange={(e) => setReminderEmails(e.target.value)}
+                        placeholder={"example1@company.com\nexample2@company.com"}
+                        className="w-full h-24 rounded-lg border border-indigo-200 px-3 py-2 text-sm text-slate-900 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-y"
+                    />
+                    <div className="flex items-center gap-3">
+                        <button
+                            disabled={reminderSending || !reminderEmails.trim()}
+                            onClick={async () => {
+                                setReminderSending(true);
+                                setReminderResult(null);
+                                const emails = reminderEmails
+                                    .split(/[\n,]+/)
+                                    .map((e) => e.trim())
+                                    .filter((e) => e.includes("@"));
+                                if (emails.length === 0) {
+                                    setReminderResult({ errors: ["有効なメールアドレスがありません"] });
+                                    setReminderSending(false);
+                                    return;
+                                }
+                                const result = await sendSurveyReminder(surveyId, emails);
+                                if (result.success) {
+                                    setReminderResult({ sentCount: result.sentCount, errors: result.errors });
+                                } else {
+                                    setReminderResult({ errors: [result.error ?? "送信に失敗しました"] });
+                                }
+                                setReminderSending(false);
+                            }}
+                            className="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                            {reminderSending ? "送信中..." : "送信する"}
+                        </button>
+                        {reminderResult && reminderResult.sentCount != null && (
+                            <p className="text-sm text-emerald-700">{reminderResult.sentCount}件のリマインドを送信しました</p>
+                        )}
+                        {reminderResult?.errors && reminderResult.errors.length > 0 && (
+                            <p className="text-sm text-red-600">エラー: {reminderResult.errors.join(", ")}</p>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* Filter Panel */}
             {showFilter && hasAnyAttrData && (
@@ -523,8 +626,15 @@ export default function ResultsClient({ survey, questionStats, totalResponses, o
                 </div>
             )}
 
+            {/* 少人数フィルター警告 */}
+            {isFiltered && filteredTotal > 0 && filteredTotal < MIN_SEGMENT_SIZE && (
+                <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 text-sm text-amber-800">
+                    個人特定防止のため、フィルター後の回答数が{MIN_SEGMENT_SIZE}件未満の場合、詳細な結果は表示できません。フィルター条件を広げてください。
+                </div>
+            )}
+
             {/* Aggregate View */}
-            {view === "aggregate" && (
+            {view === "aggregate" && (!(isFiltered && filteredTotal > 0 && filteredTotal < MIN_SEGMENT_SIZE)) && (
                 <div className="space-y-6">
                     {/* Genre breakdown summary (only when no genre filter) */}
                     {!genreFilter && (
@@ -641,6 +751,11 @@ export default function ResultsClient({ survey, questionStats, totalResponses, o
                                 属性内訳
                                 {isFiltered && <span className="text-xs font-normal text-amber-600">（フィルター後）</span>}
                             </h3>
+                            {hiddenSegmentCount > 0 && (
+                                <p className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                                    個人特定防止のため、回答数が{MIN_SEGMENT_SIZE}件未満のセグメント（{hiddenSegmentCount}件）は非表示にしています。
+                                </p>
+                            )}
                             <div className="grid gap-4 sm:grid-cols-2">
                                 {deptCounts.length > 0 && (
                                     <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
@@ -699,7 +814,7 @@ export default function ResultsClient({ survey, questionStats, totalResponses, o
             )}
 
             {/* Per-Respondent List View */}
-            {view === "list" && (
+            {view === "list" && (!(isFiltered && filteredTotal > 0 && filteredTotal < MIN_SEGMENT_SIZE)) && (
                 <div className="space-y-4">
                     {(isFiltered ? filteredResponses : responses).length === 0 && (
                         <div className="bg-white rounded-xl border border-slate-200 p-10 text-center text-slate-400 text-sm">

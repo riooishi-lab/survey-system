@@ -1,5 +1,6 @@
 import { getSupabase } from "@/lib/supabase-server";
 import SurveyClientForm from "@/app/SurveyClientForm";
+import { checkSurveyAlreadyAnswered } from "@/app/actions/survey";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +49,24 @@ export default async function EmployeeSurveyPage({ params }: { params: Promise<{
     // Survey not active
     if (!survey || survey.status !== "active") {
         return <ErrorPage message="現在このサーベイは受付していません。" />;
+    }
+
+    // 重複回答チェック
+    const alreadyAnswered = await checkSurveyAlreadyAnswered(survey.id);
+    if (alreadyAnswered) {
+        return (
+            <div className="min-h-screen bg-slate-50 py-12 px-4 flex items-center justify-center">
+                <div className="text-center p-8 bg-white rounded-xl shadow-sm border border-slate-200 max-w-md w-full">
+                    <div className="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg className="w-8 h-8 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                        </svg>
+                    </div>
+                    <h1 className="text-xl font-bold text-slate-900 mb-2">回答済みです</h1>
+                    <p className="text-slate-600 text-sm">このサーベイにはすでに回答いただいています。<br />ご協力ありがとうございました。</p>
+                </div>
+            </div>
+        );
     }
 
     const questions = (survey.questions || []).sort((a: any, b: any) => a.order_index - b.order_index);
