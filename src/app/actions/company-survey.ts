@@ -433,6 +433,7 @@ export async function updateCompanySurvey(
         status: "draft" | "active" | "closed";
         is_anonymous?: boolean;
         respondent_fields?: Record<string, boolean | string[]>;
+        target_respondents?: number | null;
         questions: { id?: string; text: string; type: "score" | "text" | "choice"; order_index: number; options?: string[]; genre?: string }[];
     }
 ) {
@@ -497,6 +498,7 @@ export async function updateCompanySurvey(
             status: surveyData.status,
             is_anonymous: surveyData.is_anonymous ?? false,
             respondent_fields: surveyData.respondent_fields ?? { name: false, age: false, gender: false, join_year: false, hire_type: false, department: false },
+            target_respondents: surveyData.target_respondents ?? null,
         })
         .eq("id", surveyId);
 
@@ -658,6 +660,58 @@ export async function deleteCompanySurvey(surveyId: string) {
 
     revalidatePath("/company");
     return { success: true };
+}
+
+export async function copyCompanySurvey(surveyId: string) {
+    const companyId = await requireCompanyAuth();
+    const supabase = getSupabase();
+
+    const { data: original } = await supabase
+        .from("surveys")
+        .select("*, questions(*)")
+        .eq("id", surveyId)
+        .eq("company_id", companyId)
+        .single();
+
+    if (!original) return { error: "権限がありません" };
+
+    const { data: newSurvey, error: surveyError } = await supabase
+        .from("surveys")
+        .insert({
+            company_id: companyId,
+            title: `${original.title}（コピー）`,
+            description: original.description,
+            deadline: null,
+            status: "draft",
+            is_anonymous: original.is_anonymous,
+            respondent_fields: original.respondent_fields,
+            target_respondents: original.target_respondents,
+        })
+        .select()
+        .single();
+
+    if (surveyError || !newSurvey) return { error: "コピーの作成に失敗しました" };
+
+    const questions = (original.questions || []).sort((a: any, b: any) => a.order_index - b.order_index);
+    if (questions.length > 0) {
+        const { error: qError } = await supabase.from("questions").insert(
+            questions.map((q: any) => ({
+                survey_id: newSurvey.id,
+                text: q.text,
+                type: q.type,
+                order_index: q.order_index,
+                options: q.options ?? null,
+                genre: q.genre ?? null,
+            }))
+        );
+        if (qError) {
+            await supabase.from("surveys").delete().eq("id", newSurvey.id);
+            return { error: "設問のコピーに失敗しました" };
+        }
+    }
+
+    revalidatePath("/company");
+    return { success: true, surveyId: newSurvey.id };
 }
 
 export async function getCompanySurveyResults(surveyId: string) {

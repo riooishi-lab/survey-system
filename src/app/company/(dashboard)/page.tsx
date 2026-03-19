@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { PlusCircle, FileText, Users, Link2, BarChart2 } from "lucide-react";
 import SurveyLinkButton from "./SurveyLinkButton";
 import SurveyDeleteButton from "./SurveyDeleteButton";
+import SurveyCopyButton from "./SurveyCopyButton";
 
 export const dynamic = "force-dynamic";
 
@@ -121,6 +122,7 @@ export default async function CompanyDashboard() {
                                                     結果
                                                 </Button>
                                             </Link>
+                                            <SurveyCopyButton surveyId={survey.id} />
                                             <SurveyDeleteButton surveyId={survey.id} surveyTitle={survey.title} />
                                         </div>
                                     </div>
